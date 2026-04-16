@@ -9,7 +9,6 @@ import { enviarEmailRecuperacao } from "../config/email.js";
 // Chave secreta usada para assinar o JWT
 const SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Validação para garantir que a chave foi definida
@@ -356,7 +355,7 @@ export async function googleLogin(req, res) {
       usuario = novoUsuario;
     }
 
-    if (usuario.situacao === "desativado") {
+    if (usuario.situacao && usuario.situacao === "desativado") {
       return res.status(403).json({
         message: "Conta desativada",
       });

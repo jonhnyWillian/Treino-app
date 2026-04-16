@@ -1,5 +1,4 @@
 import { db } from "../config/knex.js";
-
 // SALVAR TREINO E HISTÓRICO EM UMA ÚNICA VEZ (AO FINALIZAR)
 export async function finalizarTreinoCompleto(req, res) {
   try {
@@ -9,6 +8,8 @@ export async function finalizarTreinoCompleto(req, res) {
     if (!tipo || !exerciciosRealizados || !diaSemana) {
       return res.status(400).json({ message: "Dados incompletos" });
     }
+
+    let treinoId;
 
     await db.transaction(async (trx) => {
       const nomesExercicios = exerciciosRealizados.map(ex => ex.nome).join(", ");
@@ -23,7 +24,7 @@ export async function finalizarTreinoCompleto(req, res) {
         })
         .returning(["id"]);
 
-      const treinoId = treino.id;
+      treinoId = treino.id;
 
       // 2. exercícios
       for (const ex of exerciciosRealizados) {
@@ -43,7 +44,7 @@ export async function finalizarTreinoCompleto(req, res) {
           treinoId,
           exercicioId: exercicio.id,
           series: Number(ex.series) || 3,
-          repeticoes: parseInt(String(ex.repeticoes).split("-")[0]) || 12
+          repeticoes: Number(String(ex.repeticoes || "12").split("-")[0])
         });
       }
 
@@ -75,7 +76,7 @@ export async function finalizarTreinoCompleto(req, res) {
 
 // LISTAR TREINOS DO USUÁRIO (COM EXERCÍCIOS)
 export async function listarTreinos(req, res) {
-  try {
+    try {
     const usuarioId = req.usuario.id;
 
     const rows = await db("UsuarioTreinos as ut")
@@ -135,7 +136,7 @@ export async function salvarHistorico(req, res) {
     await db("HistoricoTreinos").insert({
       usuarioId,
       treinoId,
-      dataTreino: new Date()
+      dataTreino: db.fn.now()
     });
 
     res.status(201).json({ message: "Treino registrado no histórico!" });

@@ -1,8 +1,12 @@
 import knex from "knex";
 import dotenv from "dotenv";
-import { DatabaseInitializer } from "../database/DatabaseInitializer.js";
 
 dotenv.config();
+
+/*
+========================================
+❌ CONFIG ANTIGA - SQL SERVER (MSSQL)
+========================================
 
 export const db = knex({
   client: "mssql",
@@ -22,6 +26,31 @@ export const db = knex({
     max: 10
   }
 });
+*/
 
+/*
+========================================
+✅ NOVA CONFIG - POSTGRESQL (NEON / RENDER)
+========================================
+*/
 
-await DatabaseInitializer.init(); 
+export const db = knex({
+  client: "pg",
+  connection: process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false, // 🔥 necessário pro Neon
+        },
+      }
+    : {
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_DATABASE,
+      },
+  pool: {
+    min: 0,
+    max: 10,
+  },
+});

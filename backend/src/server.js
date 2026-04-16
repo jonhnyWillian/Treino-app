@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import { db } from "./config/knex.js";
-import { DatabaseInitializer } from "./database/DatabaseInitializer.js";
+import { DatabaseInitializer } from "./database/DatabaseInitializerPostgreSQL.js";
 
 import userRoutes from "./routes/userRoutes.js";
 import workoutRoutes from "./routes/workoutRoutes.js";
@@ -17,12 +17,19 @@ app.use(express.json());
 
 async function startServer() {
   try {
-    // 🔌 Testa conexão com banco
-    await db.raw("SELECT 1");
-    console.log("✅ Conectado ao SQL Server com Knex");
+    // 🔌 Testa conexão com PostgreSQL (Neon)
+    await db.raw("select 1");
+    console.log("✅ Conectado ao PostgreSQL (Neon)");
 
-    // 🧱 Inicializa tabelas
-    await DatabaseInitializer.init();
+    // 🧱 Inicializa tabelas (opcional em produção)
+    //await DatabaseInitializer.init();
+    
+    // cria tabelas (DEV apenas)
+    if (process.env.NODE_ENV !== "production") {
+      await DatabaseInitializer.init();
+      console.log("🧱 Tabelas verificadas/criadas");
+    }
+
 
     // 🚀 Rotas
     app.use("/users", userRoutes);
@@ -32,9 +39,11 @@ async function startServer() {
       res.send("API rodando 🚀");
     });
 
-    const PORT = 3001;
+    // ⚠️ IMPORTANTE: usar PORT do ambiente (Render/Railway/Neon)
+    const PORT = process.env.PORT || 3001;
+
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
     });
 
   } catch (error) {
