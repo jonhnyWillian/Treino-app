@@ -34,6 +34,17 @@ export async function login(email: string, senha: string) {
   return response.json();
 }
 
+export async function cadastro(dados: any) {
+  const response = await fetch(`${API_URL}/users/cadastro`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(dados),
+  });
+  return response.json();
+}
+
 export async function googleLogin(token: string) {
   const response = await fetch(`${API_URL}/users/google-login`, {
     method: "POST",
@@ -41,6 +52,28 @@ export async function googleLogin(token: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ token }),
+  });
+  return response.json();
+}
+
+export async function forgotPassword(email: string) {
+  const response = await fetch(`${API_URL}/users/forgot-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+  return response.json();
+}
+
+export async function resetPassword(token: string, novaSenha: string) {
+  const response = await fetch(`${API_URL}/users/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, novaSenha }),
   });
   return response.json();
 }
@@ -92,5 +125,13 @@ export async function redefinirSenhaLogado(novaSenha: string) {
 
 export async function getPerfil() {
   const response = await authenticatedFetch("/users/perfil");
+  return response.json();
+}
+
+export async function patchPerfil(dados: { peso?: number; altura?: number }) {
+  const response = await authenticatedFetch("/users/perfil", {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
   return response.json();
 }

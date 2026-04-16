@@ -11,7 +11,7 @@ import {
   LockReset,
   NoAccounts,
 } from "@mui/icons-material";
-import { desativarConta, redefinirSenhaLogado } from "@/services/api";
+import { desativarConta, getPerfil, patchPerfil, redefinirSenhaLogado } from "@/services/api";
 import toast from "react-hot-toast";
 
 type Usuario = {
@@ -86,27 +86,16 @@ export default function PerfilPage() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
     const buscarUsuario = async () => {
-      if (!token) return;
       try {
-
-        const response = await fetch("http://localhost:3001/users/perfil", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error("Erro ao buscar perfil");
+        const data = await getPerfil();
+        if (data.nome) {
+          setUsuario(data);
+          setPeso(typeof data.peso === "number" ? String(data.peso) : "");
+          setAltura(typeof data.altura === "number" ? String(data.altura) : "");
+        } else {
+          router.push("/");
         }
-
-        const data: Usuario = await response.json();
-        setUsuario(data);
-        setPeso(typeof data.peso === "number" ? String(data.peso) : "");
-        setAltura(typeof data.altura === "number" ? String(data.altura) : "");
-
       } catch (error) {
         console.error(error);
         toast.error("Erro ao carregar perfil");
@@ -115,7 +104,6 @@ export default function PerfilPage() {
     };
 
     buscarUsuario();
-
   }, [router]);
 
   const bmi = useMemo(() => {
@@ -134,12 +122,6 @@ export default function PerfilPage() {
   };
 
   const salvarAlteracoes = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/");
-      return;
-    }
-
     const p = peso.trim() === "" ? undefined : Number(peso);
     const a = altura.trim() === "" ? undefined : Number(altura);
 
@@ -154,30 +136,19 @@ export default function PerfilPage() {
 
     setSalvando(true);
     try {
-      const response = await fetch("http://localhost:3001/users/perfil", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          peso: p,
-          altura: a,
-        }),
-      });
+      const data = await patchPerfil({ peso: p, altura: a });
 
-      if (!response.ok) {
-        throw new Error("Erro ao salvar alterações");
+      if (data.id) {
+        setUsuario(data);
+        setPeso(typeof data.peso === "number" ? String(data.peso) : "");
+        setAltura(typeof data.altura === "number" ? String(data.altura) : "");
+        toast.success("Alterações salvas!");
+      } else {
+        throw new Error(data.message || "Erro ao salvar alterações");
       }
-
-      const data: Usuario = await response.json();
-      setUsuario(data);
-      setPeso(typeof data.peso === "number" ? String(data.peso) : "");
-      setAltura(typeof data.altura === "number" ? String(data.altura) : "");
-      toast.success("Alterações salvas!");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao salvar alterações.");
+      toast.error(error.message || "Erro ao salvar alterações.");
     } finally {
       setSalvando(false);
     }

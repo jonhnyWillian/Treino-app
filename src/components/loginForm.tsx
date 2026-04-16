@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
+import { login } from "@/services/api";
 
 type Errors = {
   email?: string;
@@ -60,27 +61,15 @@ export default function LoginForm() {
     setApiError(null);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-      const resposta = await fetch(`${baseUrl}/users/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
-
-      const dados = await resposta.json();
-
-      if (!resposta.ok) {
-        setApiError(dados?.message || "Login inválido");
-        return;
-      }
+      const dados = await login(form.email, form.senha);
 
       if (dados.token) {
         localStorage.setItem("token", dados.token);
+        localStorage.setItem("usuario", JSON.stringify(dados.usuario));
+        router.push("/perfil");
+      } else {
+        setApiError(dados?.message || "Login inválido");
       }
-      localStorage.setItem("usuario", JSON.stringify(dados.usuario));
-      router.push("/perfil");
     } catch (error) {
       console.error(error);
       setApiError("Erro ao conectar com servidor");

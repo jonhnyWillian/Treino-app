@@ -2,7 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto"; 
 import { OAuth2Client } from "google-auth-library";
-import { sql, getPool } from "../config/db.js"; // Conexão com banco SQL Server
+//import { sql, getPool } from "../config/db.js"; // Conexão com banco SQL Server
+import { db } from "../config/knex.js";
 import { enviarEmailRecuperacao } from "../config/email.js";
 
 // Chave secreta usada para assinar o JWT
@@ -25,52 +26,38 @@ function normalizeEmail(email) {
 export async function cadastrarUsuario(req, res) {
   try {
     let { nome, idade, sexo, telefone, email, senha } = req.body;
-
-    // Normaliza os dados
     nome = String(nome || "").trim();
     email = normalizeEmail(email);
 
-    // Validação básica
     if (!nome || !email || !senha) {
       return res.status(400).json({
         message: "Nome, email e senha são obrigatórios",
       });
     }
 
-    // conexão com o banco
-    const pool = getPool(); 
+    // verifica se já existe
+    const userCheck = await db("Usuarios")
+      .where({ email })
+      .first();
 
-    // Verifica se o email já existe
-    const userCheck = await pool.request()
-      .input("email", sql.NVarChar, email)
-      .query("SELECT id FROM Usuarios WHERE email = @email");
-
-    if (userCheck.recordset.length > 0) {
+    if (userCheck) {
       return res.status(400).json({
         message: "Email já cadastrado",
       });
     }
 
-    // Criptografa a senha antes de salvar
     const senhaHash = await bcrypt.hash(senha, 10);
+    const [usuario] = await db("Usuarios")
+      .insert({
+        nome,
+        idade: Number(idade) || null,
+        sexo,
+        telefone,
+        email,
+        senha: senhaHash
+      })
+      .returning(["id", "nome", "email"]);
 
-    // Insere usuário no banco
-    const result = await pool.request()
-      .input("nome", sql.NVarChar, nome)
-      .input("idade", sql.Int, Number(idade) || null)
-      .input("sexo", sql.NVarChar, sexo)
-      .input("telefone", sql.NVarChar, telefone)
-      .input("email", sql.NVarChar, email)
-      .input("senha", sql.NVarChar, senhaHash)
-      .query(`
-        INSERT INTO Usuarios (nome, idade, sexo, telefone, email, senha)
-        OUTPUT INSERTED.id, INSERTED.nome, INSERTED.email
-        VALUES (@nome, @idade, @sexo, @telefone, @email, @senha)
-      `);
-
-    const usuario = result.recordset[0];
-
-    // Retorna sucesso
     res.status(201).json({
       message: "Usuário cadastrado com sucesso",
       usuario,
@@ -78,14 +65,6 @@ export async function cadastrarUsuario(req, res) {
 
   } catch (error) {
     console.error("❌ ERRO NO CADASTRO:", error);
-
-    // Erro de chave única duplicada (SQL Server)
-    if (error.number === 2627) {
-      return res.status(400).json({
-        message: "Email já cadastrado",
-      });
-    }
-
     res.status(500).json({
       message: "Erro ao cadastrar usuário",
     });
@@ -97,50 +76,30 @@ export async function loginUsuario(req, res) {
   try {
     let { email, senha } = req.body;
 
-    // Normaliza email
     email = normalizeEmail(email);
 
-    // Validação
     if (!email || !senha) {
       return res.status(400).json({
         message: "Email e senha são obrigatórios",
       });
     }
 
-    const pool = getPool();
+    const usuario = await db("Usuarios")
+      .where({ email })
+      .first();
 
-    // Busca usuário no banco
-    const result = await pool.request()
-      .input("email", sql.NVarChar, email)
-      .query(`
-        SELECT 
-          id,
-          nome,
-          email,
-          senha,
-          situacao,
-          sexo
-        FROM Usuarios
-        WHERE email = @email
-      `);
-
-    const usuario = result.recordset[0];
-
-    // Se não existir
     if (!usuario) {
       return res.status(401).json({
         message: "Email ou senha inválidos",
       });
     }
 
-    // Verifica se a conta está desativada
-    if (usuario.situacao === 'desativado') {
+    if (usuario.situacao === "desativado") {
       return res.status(403).json({
-        message: "Esta conta está desativada. Entre em contato com o suporte para reativar.",
+        message: "Conta desativada",
       });
     }
 
-    // Compara senha digitada com hash do banco
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
 
     if (!senhaValida) {
@@ -149,14 +108,12 @@ export async function loginUsuario(req, res) {
       });
     }
 
-    // Gera token JWT válido por 1 hora
     const token = jwt.sign(
       { id: usuario.id, email: usuario.email },
       SECRET,
       { expiresIn: "1h" }
     );
 
-    // Retorna sucesso + token
     res.json({
       message: "Login realizado com sucesso",
       token,
@@ -184,50 +141,29 @@ export async function forgotPassword(req, res) {
       return res.status(400).json({ message: "Email é obrigatório" });
     }
 
-    const pool = getPool();
+    const usuario = await db("Usuarios")
+      .where({ email })
+      .select("id", "nome", "email")
+      .first();
 
-    // Busca usuário
-    const result = await pool.request()
-      .input("email", sql.NVarChar, email)
-      .query("SELECT id, nome, email FROM Usuarios WHERE email = @email");
-
-    const usuario = result.recordset[0];
-
-    // Se não existir, retornamos sucesso por segurança
     if (!usuario) {
       return res.json({
         message: "Se o email estiver cadastrado, enviaremos instruções",
       });
     }
 
-    // Gera token aleatório (código curto para facilitar ou token longo para link)
-    // Vou usar um token longo para o link de redefinição
     const token = crypto.randomBytes(32).toString("hex");
-
-    // Define expiração (15 minutos)
     const exp = new Date(Date.now() + 1000 * 60 * 15);
 
-    // Salva no banco
-    await pool.request()
-      .input("token", sql.VarChar, token)
-      .input("exp", sql.DateTime, exp)
-      .input("id", sql.Int, usuario.id)
-      .query(`
-        UPDATE Usuarios
-        SET resetToken = @token,
-            resetTokenExp = @exp
-        WHERE id = @id
-      `);
+    await db("Usuarios")
+      .where({ id: usuario.id })
+      .update({
+        resetToken: token,
+        resetTokenExp: exp
+      });
 
-    // Envia o email
-    const linkRedefinicao = `http://localhost:3000/resetar-senha?token=${token}`;
-    const emailEnviado = await enviarEmailRecuperacao(usuario.email, linkRedefinicao);
-
-    if (!emailEnviado) {
-      // Se falhou o envio mas salvou no banco, logamos mas avisamos o usuário
-      console.error("Falha ao enviar email para:", usuario.email);
-    }
-
+    const link = `http://localhost:3000/resetar-senha?token=${token}`;
+    await enviarEmailRecuperacao(usuario.email, link);
     res.json({
       message: "Se o email estiver cadastrado, enviaremos instruções",
     });
@@ -236,52 +172,33 @@ export async function forgotPassword(req, res) {
     console.error("❌ ERRO forgotPassword:", error);
     res.status(500).json({ message: "Erro ao processar recuperação" });
   }
+    
 }
 
 //  RESETAR SENHA
 export async function resetPassword(req, res) {
   try {
     const { token, novaSenha } = req.body;
-
     if (!token || !novaSenha) {
       return res.status(400).json({ message: "Dados incompletos" });
     }
-
-    if (String(novaSenha).length < 8) {
-      return res.status(400).json({ message: "Senha deve ter 8+ caracteres" });
-    }
-
-    const pool = getPool();
-
-    // Busca usuário com token válido
-    const result = await pool.request()
-      .input("token", sql.VarChar, token)
-      .query(`
-        SELECT id FROM Usuarios
-        WHERE resetToken = @token
-        AND resetTokenExp > GETDATE()
-      `);
-
-    const usuario = result.recordset[0];
+    const usuario = await db("Usuarios")
+      .where("resetToken", token)
+      .andWhere("resetTokenExp", ">", new Date())
+      .first();
 
     if (!usuario) {
       return res.status(400).json({ message: "Token inválido ou expirado" });
     }
 
-    // Criptografa nova senha
     const hash = await bcrypt.hash(novaSenha, 10);
-
-    // Atualiza
-    await pool.request()
-      .input("senha", sql.NVarChar, hash)
-      .input("id", sql.Int, usuario.id)
-      .query(`
-        UPDATE Usuarios
-        SET senha = @senha,
-            resetToken = NULL,
-            resetTokenExp = NULL
-        WHERE id = @id
-      `);
+    await db("Usuarios")
+      .where({ id: usuario.id })
+      .update({
+        senha: hash,
+        resetToken: null,
+        resetTokenExp: null
+      });
 
     res.json({ message: "Senha redefinida com sucesso!" });
 
@@ -294,31 +211,23 @@ export async function resetPassword(req, res) {
 //  PERFIL (ROTA PROTEGIDA)
 export async function getPerfil(req, res) {
   try {
-    const pool = getPool();
-
-    // Usa o ID vindo do token (middleware de autenticação)
-    const result = await pool.request()
-      .input("id", sql.Int, req.usuario.id)
-      .query(`
-        SELECT 
-          Id as id,
-          Nome as nome,
-          Email as email,
-          Idade as idade,
-          Peso as peso,
-          Altura as altura,
-          Sexo as sexo
-        FROM Usuarios
-        WHERE Id = @id
-      `);
-
-    const usuario = result.recordset[0];
+    const usuario = await db("Usuarios")
+      .where({ id: req.usuario.id })
+      .select(
+        "id",
+        "nome",
+        "email",
+        "idade",
+        "peso",
+        "altura",
+        "sexo"
+      )
+      .first();
 
     if (!usuario) {
       return res.status(404).json({ message: "Usuário não encontrado" });
     }
 
-    // Retorna dados do perfil
     res.json(usuario);
 
   } catch (error) {
@@ -330,81 +239,40 @@ export async function getPerfil(req, res) {
 //  ATUALIZAR PERFIL (ROTA PROTEGIDA) - peso/altura
 export async function updatePerfil(req, res) {
   try {
-    const id = req.usuario?.id;
-    if (!id) {
-      return res.status(401).json({ message: "Não autorizado" });
-    }
+    const id = req.usuario.id;
+    const { peso, altura } = req.body;
 
-    const { peso, altura } = req.body ?? {};
+    const updateData = {};
 
-    const hasPeso = Object.prototype.hasOwnProperty.call(req.body ?? {}, "peso");
-    const hasAltura = Object.prototype.hasOwnProperty.call(req.body ?? {}, "altura");
-
-    if (!hasPeso && !hasAltura) {
-      return res.status(400).json({ message: "Envie ao menos peso ou altura" });
-    }
-
-    // Aceita undefined/ausente (não altera). Se vier valor, valida.
-    if (hasPeso && peso !== undefined && peso !== null) {
+    if (peso !== undefined) {
       const p = Number(peso);
       if (!Number.isFinite(p) || p <= 0) {
         return res.status(400).json({ message: "Peso inválido" });
       }
+      updateData.peso = p;
     }
 
-    if (hasAltura && altura !== undefined && altura !== null) {
+    if (altura !== undefined) {
       const a = Number(altura);
       if (!Number.isFinite(a) || a <= 0) {
         return res.status(400).json({ message: "Altura inválida" });
       }
+      updateData.altura = a;
     }
 
-    const pool = getPool();
+    await db("Usuarios")
+      .where({ id })
+      .update(updateData);
 
-    // Atualiza somente o que vier no body (se não vier, mantém).
-    await pool.request()
-      .input("id", sql.Int, id)
-      .input(
-        "peso",
-        sql.Decimal(10, 2),
-        hasPeso ? (peso === null ? null : (peso === undefined ? null : Number(peso))) : null
-      )
-      .input(
-        "altura",
-        sql.Decimal(10, 2),
-        hasAltura ? (altura === null ? null : (altura === undefined ? null : Number(altura))) : null
-      )
-      .query(`
-        UPDATE Usuarios
-        SET
-          Peso = CASE WHEN @peso IS NULL AND ${hasPeso ? 1 : 0} = 0 THEN Peso ELSE COALESCE(@peso, Peso) END,
-          Altura = CASE WHEN @altura IS NULL AND ${hasAltura ? 1 : 0} = 0 THEN Altura ELSE COALESCE(@altura, Altura) END
-        WHERE Id = @id
-      `);
+    const usuario = await db("Usuarios")
+      .where({ id })
+      .first();
 
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query(`
-        SELECT 
-          Id as id,
-          Nome as nome,
-          Email as email,
-          Idade as idade,
-          Peso as peso,
-          Altura as altura
-        FROM Usuarios
-        WHERE Id = @id
-      `);
+    res.json(usuario);
 
-    const usuario = result.recordset[0];
-    if (!usuario) {
-      return res.status(404).json({ message: "Usuário não encontrado" });
-    }
-
-    return res.json(usuario);
   } catch (error) {
     console.error("❌ ERRO UPDATE PERFIL:", error);
-    return res.status(500).json({ message: "Erro ao atualizar perfil" });
+    res.status(500).json({ message: "Erro ao atualizar perfil" });
   }
 }
 
@@ -412,13 +280,13 @@ export async function updatePerfil(req, res) {
 export async function desativarConta(req, res) {
   try {
     const usuarioId = req.usuario.id;
-    const pool = getPool();
 
-    await pool.request()
-      .input("id", sql.Int, usuarioId)
-      .query("UPDATE Usuarios SET situacao = 'desativado' WHERE id = @id");
+    await db("Usuarios")
+      .where({ id: usuarioId })
+      .update({ situacao: "desativado" });
 
     res.json({ message: "Conta desativada com sucesso" });
+
   } catch (error) {
     console.error("❌ ERRO AO DESATIVAR CONTA:", error);
     res.status(500).json({ message: "Erro ao desativar conta" });
@@ -436,14 +304,13 @@ export async function redefinirSenhaLogado(req, res) {
     }
 
     const senhaHash = await bcrypt.hash(novaSenha, 10);
-    const pool = getPool();
 
-    await pool.request()
-      .input("id", sql.Int, usuarioId)
-      .input("senha", sql.NVarChar, senhaHash)
-      .query("UPDATE Usuarios SET senha = @senha WHERE id = @id");
+    await db("Usuarios")
+      .where({ id: usuarioId })
+      .update({ senha: senhaHash });
 
     res.json({ message: "Senha redefinida com sucesso" });
+
   } catch (error) {
     console.error("❌ ERRO AO REDEFINIR SENHA:", error);
     res.status(500).json({ message: "Erro ao redefinir senha" });
@@ -459,7 +326,6 @@ export async function googleLogin(req, res) {
       return res.status(400).json({ message: "Token do Google não fornecido" });
     }
 
-    // Valida o token com o Google
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
@@ -469,46 +335,33 @@ export async function googleLogin(req, res) {
     const { email, name } = payload;
 
     const emailNormalizado = normalizeEmail(email);
-    const pool = getPool();
 
-    // Verifica se o usuário já existe
-    let result = await pool.request()
-      .input("email", sql.NVarChar, emailNormalizado)
-      .query(`
-        SELECT id, nome, email, situacao, sexo
-        FROM Usuarios
-        WHERE email = @email
-      `);
+    let usuario = await db("Usuarios")
+      .where({ email: emailNormalizado })
+      .first();
 
-    let usuario = result.recordset[0];
-
-    // Se não existir, cria um novo usuário
+    // cria usuário se não existir
     if (!usuario) {
-      // Gera uma senha aleatória segura (que o usuário nunca usará diretamente)
       const senhaDummy = crypto.randomBytes(16).toString("hex");
       const senhaHash = await bcrypt.hash(senhaDummy, 10);
 
-      const insertResult = await pool.request()
-        .input("nome", sql.NVarChar, name)
-        .input("email", sql.NVarChar, emailNormalizado)
-        .input("senha", sql.NVarChar, senhaHash)
-        .query(`
-          INSERT INTO Usuarios (nome, email, senha)
-          OUTPUT INSERTED.id, INSERTED.nome, INSERTED.email, INSERTED.sexo
-          VALUES (@nome, @email, @senha)
-        `);
+      const [novoUsuario] = await db("Usuarios")
+        .insert({
+          nome: name,
+          email: emailNormalizado,
+          senha: senhaHash
+        })
+        .returning(["id", "nome", "email", "sexo"]);
 
-      usuario = insertResult.recordset[0];
+      usuario = novoUsuario;
     }
 
-    // Verifica se a conta está desativada
-    if (usuario.situacao === 'desativado') {
+    if (usuario.situacao === "desativado") {
       return res.status(403).json({
-        message: "Esta conta está desativada. Entre em contato com o suporte para reativar.",
+        message: "Conta desativada",
       });
     }
 
-    // Gera o token JWT da nossa aplicação
     const jwtToken = jwt.sign(
       { id: usuario.id, email: usuario.email },
       SECRET,

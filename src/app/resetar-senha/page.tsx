@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, Visibility, VisibilityOff, CheckCircle } from "@mui/icons-material";
 import toast from "react-hot-toast";
+import { resetPassword } from "@/services/api";
 
 function ResetarSenhaContent() {
   const router = useRouter();
@@ -36,15 +37,9 @@ function ResetarSenhaContent() {
 
     try {
       setLoading(true);
-      const resposta = await fetch("http://localhost:3001/users/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, novaSenha })
-      });
+      const dados = await resetPassword(token || "", novaSenha);
 
-      const dados = await resposta.json();
-
-      if (resposta.ok) {
+      if (dados.message === "Senha redefinida com sucesso") {
         setSucesso(true);
         toast.success("Senha redefinida com sucesso!");
         setTimeout(() => router.push("/"), 3000);

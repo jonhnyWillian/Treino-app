@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useGoogleLogin } from "@react-oauth/google";
-import { googleLogin } from "@/services/api";
+import { googleLogin, login } from "@/services/api";
 
 export default function HomePage() {
   const router = useRouter();
@@ -15,26 +15,9 @@ export default function HomePage() {
 
   const handleLogin = async () => {
     try {
-      const resposta = await fetch("http://localhost:3001/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          senha,
-        }),
-      });
+      const dados = await login(email, senha);
 
-      let dados;
-
-      try {
-        dados = await resposta.json();
-      } catch {
-        dados = { message: "Erro no servidor (não retornou JSON)" };
-      }
-
-      if (resposta.ok) {
+      if (dados.token) {
         localStorage.setItem("usuario", JSON.stringify(dados.usuario));
         localStorage.setItem("token", dados.token);
 
@@ -73,55 +56,59 @@ export default function HomePage() {
   });
 
   return (
-    <div className="w-full px-4 pb-32 pt-6">
-      <div className="w-full">
-        <div className="flex flex-col items-center mb-6">
-          <div className="h-14 w-14 rounded-full bg-slate-900/70 border border-white/10 backdrop-blur flex items-center justify-center shadow-lg">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-blue-400"
-            >
-              <path
-                d="M6.5 9.5V14.5M17.5 9.5V14.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-              <path
-                d="M5 10.5H4C3.44772 10.5 3 10.9477 3 11.5V12.5C3 13.0523 3.44772 13.5 4 13.5H5M19 10.5H20C20.5523 10.5 21 10.9477 21 11.5V12.5C21 13.0523 20.5523 13.5 20 13.5H19"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-              <path
-                d="M7 12H17"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
+    <div className="w-full px-4 pb-32 pt-12 flex flex-col items-center">
+      <div className="w-full max-w-[400px]">
+        <div className="flex flex-col items-center mb-10">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+            <div className="relative h-20 w-20 rounded-3xl bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-blue-400"
+              >
+                <path
+                  d="M6.5 9.5V14.5M17.5 9.5V14.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M5 10.5H4C3.44772 10.5 3 10.9477 3 11.5V12.5C3 13.0523 3.44772 13.5 4 13.5H5M19 10.5H20C20.5523 10.5 21 10.9477 21 11.5V12.5C21 13.0523 20.5523 13.5 20 13.5H19"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M7 12H17"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           </div>
-          <div className="mt-4 text-center">
-            <div className="text-white text-3xl font-extrabold tracking-wide">
-              TRAINING<span className="text-blue-400">.</span>
-            </div>
-            <div className="text-white/70 text-sm tracking-[0.25em] mt-1">
-              WORKOUT APP
-            </div>
+          
+          <div className="mt-6 text-center">
+            <h1 className="text-white text-4xl font-black tracking-tighter">
+              WORKOUT<span className="text-blue-400">APP</span>
+            </h1>
+            <p className="text-white/40 text-[10px] font-bold tracking-[0.4em] mt-2 uppercase">
+              Sua melhor versão começa aqui
+            </p>
           </div>
         </div>
 
-        <div className="rounded-3xl bg-slate-900/55 border border-white/10 backdrop-blur-xl shadow-2xl px-6 py-7">
-          <div className="space-y-4">
+        <div className="rounded-[32px] bg-white/5 border border-white/10 backdrop-blur-2xl shadow-2xl p-8">
+          <div className="space-y-6">
             <div>
-              <label className="block text-xs tracking-[0.25em] text-white/60 mb-2">
-                E-MAIL
+              <label className="block text-[10px] font-bold tracking-[0.2em] text-white/40 mb-3 ml-1 uppercase">
+                Acesso à Conta
               </label>
-              <div className="flex items-center gap-3 rounded-2xl bg-slate-950/40 border border-white/10 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl bg-slate-950/40 border border-white/10 px-4 py-4 focus-within:border-blue-400/50 focus-within:ring-4 focus-within:ring-blue-400/10 transition-all duration-300">
                 <svg
                   width="18"
                   height="18"
@@ -150,24 +137,25 @@ export default function HomePage() {
                   onChange={(e) => setEmail(e.target.value)}
                   inputMode="email"
                   autoComplete="email"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs tracking-[0.25em] text-white/60">
+              <div className="flex items-center justify-between mb-3 ml-1">
+                <label className="block text-[10px] font-bold tracking-[0.2em] text-white/40 uppercase">
                   SENHA
                 </label>
                 <button
                   type="button"
-                  className="text-[11px] tracking-[0.25em] text-blue-400 hover:text-blue-300"
+                  className="text-[10px] font-bold tracking-[0.1em] text-blue-400 hover:text-blue-300 transition"
                   onClick={() => router.push("/redefinirSenha")}
                 >
                   ESQUECI MINHA SENHA
                 </button>
               </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-slate-950/40 border border-white/10 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl bg-slate-950/40 border border-white/10 px-4 py-4 focus-within:border-blue-400/50 focus-within:ring-4 focus-within:ring-blue-400/10 transition-all duration-300">
                 <svg
                   width="18"
                   height="18"
@@ -195,10 +183,11 @@ export default function HomePage() {
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   autoComplete="current-password"
+                  suppressHydrationWarning
                 />
                 <button
                   type="button"
-                  className="text-white/60 hover:text-white/80"
+                  className="text-white/40 hover:text-white/80 transition"
                   aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setMostrarSenha((v) => !v)}
                 >
@@ -266,44 +255,49 @@ export default function HomePage() {
             </div>
 
             <button
-              className="w-full mt-2 rounded-2xl py-3 text-white font-semibold tracking-widest bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-600/20"
               onClick={handleLogin}
+              className="w-full relative group overflow-hidden rounded-2xl bg-blue-600 py-4 font-bold tracking-widest text-white transition-all hover:bg-blue-500 active:scale-[0.98] shadow-[0_10px_30px_rgba(37,99,235,0.2)]"
             >
-              ENTRAR
+              <div className="absolute inset-0 flex items-center justify-center bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              <span className="relative text-sm">ENTRAR NA CONTA</span>
             </button>
 
-            <div className="pt-2">
-              <div className="text-center text-xs tracking-[0.25em] text-white/45 mb-3">
-                OU ENTRAR COM
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/5"></div>
               </div>
-              <button
-                type="button"
-                className="w-full rounded-2xl py-3 bg-slate-950/35 border border-white/10 text-white/80 hover:text-white flex items-center justify-center gap-3"
-                onClick={() => loginComGoogle()}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                <span className="text-xs font-semibold tracking-widest">
-                  GOOGLE
+              <div className="relative flex justify-center">
+                <span className="bg-[#0b1220] px-3 text-[10px] font-bold tracking-widest text-white/20 uppercase">
+                  Ou continue com
                 </span>
-              </button>
+              </div>
             </div>
+
+            <button
+              onClick={() => loginComGoogle()}
+              className="w-full flex items-center justify-center gap-3 rounded-2xl bg-white/5 border border-white/10 py-4 text-sm font-bold text-white hover:bg-white/10 transition active:scale-[0.98]"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+              GOOGLE
+            </button>
           </div>
         </div>
 
-        <div className="mt-6 text-center text-white/60 text-sm">
-          Não possui uma conta?{" "}
-          <button
-            type="button"
-            className="text-blue-400 hover:text-blue-300 font-semibold"
-            onClick={() => router.push("/cadastro")}
-          >
-            Criar conta
-          </button>
+        <div className="mt-8 text-center">
+          <p className="text-sm text-white/40">
+            Não tem uma conta?{" "}
+            <button
+              onClick={() => router.push("/cadastro")}
+              className="font-bold text-emerald-400 hover:text-emerald-300 transition underline decoration-emerald-400/20 underline-offset-8"
+            >
+              Cadastre-se grátis
+            </button>
+          </p>
         </div>
       </div>
     </div>

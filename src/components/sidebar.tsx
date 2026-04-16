@@ -64,9 +64,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           {/* User Profile Info */}
-          <div className="mb-8 p-4 rounded-2xl bg-white/5 border border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 shrink-0 rounded-full bg-emerald-400/20 flex items-center justify-center overflow-hidden">
+          <div className="mb-8 p-4 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
+            <div className="flex items-center gap-4">
+              <div className="relative h-12 w-12 shrink-0 rounded-2xl bg-emerald-400/10 flex items-center justify-center overflow-hidden ring-1 ring-white/10 group-hover:ring-emerald-400/30 transition-all">
                 <Image 
                   src={getProfileImage()} 
                   alt="Perfil" 
@@ -75,8 +75,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 />
               </div>
               <div className="min-w-0">
-                <div className="font-semibold truncate text-white">{user?.nome || "Usuário"}</div>
-                <div className="text-xs text-white/40 truncate">{user?.email || "Carregando..."}</div>
+                <div className="font-bold truncate text-white text-sm tracking-tight">{user?.nome || "Usuário"}</div>
+                <div className="text-[10px] font-bold text-white/30 truncate uppercase tracking-widest mt-0.5">{user?.email || "Carregando..."}</div>
               </div>
             </div>
           </div>
@@ -161,14 +161,21 @@ function SidebarLink({
     <Link 
       href={href} 
       onClick={onClick}
-      className={`flex items-center gap-3 p-4 rounded-2xl transition ${
+      className={`flex items-center gap-3 p-4 rounded-2xl transition-all duration-300 group ${
         active 
-          ? "bg-emerald-400/10 text-emerald-400" 
-          : "text-white/70 hover:bg-white/5 hover:text-white"
+          ? "bg-emerald-400/10 text-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.05)]" 
+          : "text-white/50 hover:bg-white/[0.03] hover:text-white"
       }`}
     >
-      {icon}
-      <span className="font-medium">{label}</span>
+      <div className={`transition-transform duration-300 group-hover:scale-110 ${active ? "text-emerald-400" : "text-white/30 group-hover:text-emerald-400/70"}`}>
+        {icon}
+      </div>
+      <span className={`font-bold text-sm tracking-tight transition-colors ${active ? "text-emerald-400" : ""}`}>
+        {label}
+      </span>
+      {active && (
+        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+      )}
     </Link>
   );
 }
