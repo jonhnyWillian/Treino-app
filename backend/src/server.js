@@ -30,7 +30,6 @@ async function startServer() {
       console.log("🧱 Tabelas verificadas/criadas");
     }
 
-
     // 🚀 Rotas
     app.use("/users", userRoutes);
     app.use("/workouts", workoutRoutes);
