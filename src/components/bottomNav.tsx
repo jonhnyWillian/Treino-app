@@ -17,7 +17,7 @@ export default function BottomNav() {
 
   return (
     // Container principal da barra de navegação fixa na parte inferior
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#050812]/90 backdrop-blur-xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[440px] sm:-translate-x-1/2 sm:rounded-3xl sm:border sm:shadow-2xl">
+    <nav className="theme-surface fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[440px] sm:-translate-x-1/2 sm:rounded-3xl sm:border sm:shadow-2xl">
       
       {/* Wrapper interno para alinhar os itens */}
       <div className="mx-auto flex w-full items-center justify-between px-6 py-3 sm:px-8">
@@ -41,7 +41,7 @@ export default function BottomNav() {
                   // Estilos condicionais (ativo ou não)
                   isActive
                     ? "bg-emerald-400 text-black shadow-[0_18px_45px_rgba(16,185,129,0.25)]" // Quando ativo
-                    : "text-white/55 hover:bg-white/5 hover:text-white/80", // Quando inativo
+                    : "theme-text-muted hover:bg-black/5 hover:text-current", // Quando inativo
                 ].join(" ")}
               >
                 {/* Ícone do item */}

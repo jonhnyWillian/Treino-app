@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {  X, Settings, LogOut, 
+import {  X, LogOut, 
   Dumbbell, History as HistoryIcon, 
   ShieldCheck, HelpCircle, LayoutDashboard, User
 } from "lucide-react";
@@ -42,7 +42,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Overlay - Apenas Mobile */}
       <div 
-        className={`fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
+        className={`theme-overlay fixed inset-0 z-[60] transition-opacity duration-300 lg:hidden ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -50,7 +50,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar */}
       <aside 
-        className={`fixed top-0 left-0 z-[70] h-full w-[280px] bg-[#0b1220] border-r border-white/10 shadow-2xl transition-transform duration-300 ease-out lg:shadow-none ${
+        className={`theme-surface-solid fixed top-0 left-0 z-[70] h-full w-[280px] border-r shadow-2xl transition-transform duration-300 ease-out lg:shadow-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -58,13 +58,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="text-2xl font-black tracking-tighter text-emerald-400">WORKOUT APP</div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-white/60">
+            <button onClick={onClose} className="theme-text-muted p-2 rounded-xl hover:bg-black/5">
               <X size={24} />
             </button>
           </div>
 
           {/* User Profile Info */}
-          <div className="mb-8 p-4 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
+          <div className="mb-8 p-4 rounded-3xl bg-black/15 border border-white/10 hover:border-white/20 transition-colors group">
             <div className="flex items-center gap-4">
               <div className="relative h-12 w-12 shrink-0 rounded-2xl bg-emerald-400/10 flex items-center justify-center overflow-hidden ring-1 ring-white/10 group-hover:ring-emerald-400/30 transition-all">
                 <Image 

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import BottomNav from "@/components/bottomNav";
 import Sidebar from "@/components/sidebar";
+import ThemeToggle from "@/components/themeToggle";
 import { Menu } from "lucide-react";
 
 export default function NavWrapper({ children }: { children: React.ReactNode }) {
@@ -30,17 +31,25 @@ export default function NavWrapper({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex w-full min-h-screen">
+    <div className="flex min-h-screen w-full">
       {/* Sidebar - Handles its own desktop visibility via CSS */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Main Content Area */}
-      <main className={`flex-1 w-full transition-all duration-300 ${isSidebarOpen ? "lg:pl-[280px]" : "lg:pl-0"}`}>
+      <main
+        className={`w-full flex-1 pt-20 transition-all duration-300 sm:pt-24 lg:pt-0 ${
+          isSidebarOpen ? "lg:pl-[280px]" : "lg:pl-0"
+        }`}
+      >
+        <div className="fixed right-4 top-4 z-[55] sm:right-6 sm:top-6">
+          <ThemeToggle />
+        </div>
+
         {/* Mobile Menu Button - Fixed at top-left */}
-        <div className={`fixed top-6 left-6 z-[55] ${isSidebarOpen ? "lg:hidden" : ""}`}>
+        <div className={`fixed left-4 top-4 z-[55] sm:left-6 sm:top-6 ${isSidebarOpen ? "lg:hidden" : ""}`}>
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-3 rounded-2xl bg-[#0b1220]/80 backdrop-blur-xl border border-white/10 text-white/80 hover:text-white transition-all active:scale-95 shadow-xl"
+            className="theme-icon-btn p-3"
             aria-label="Abrir menu"
           >
             <Menu size={20} />

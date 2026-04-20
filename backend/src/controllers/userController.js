@@ -21,6 +21,22 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function validarFotoPerfil(fotoPerfil) {
+  if (fotoPerfil === undefined) return { ok: true };
+  if (fotoPerfil === null || fotoPerfil === "") return { ok: true };
+
+  if (typeof fotoPerfil !== "string") {
+    return { ok: false, message: "Foto de perfil inválida" };
+  }
+
+  // Evita payload excessivo ao salvar base64 no banco.
+  if (fotoPerfil.length > 3_000_000) {
+    return { ok: false, message: "Imagem muito grande. Use uma foto menor." };
+  }
+
+  return { ok: true };
+}
+
 //  CADASTRO DE USUARIO
 export async function cadastrarUsuario(req, res) {
   try {
@@ -219,7 +235,8 @@ export async function getPerfil(req, res) {
         "idade",
         "peso",
         "altura",
-        "sexo"
+        "sexo",
+        "fotoPerfil"
       )
       .first();
 
@@ -239,7 +256,7 @@ export async function getPerfil(req, res) {
 export async function updatePerfil(req, res) {
   try {
     const id = req.usuario.id;
-    const { peso, altura } = req.body;
+    const { peso, altura, fotoPerfil } = req.body;
 
     const updateData = {};
 
@@ -259,12 +276,21 @@ export async function updatePerfil(req, res) {
       updateData.altura = a;
     }
 
+    if (fotoPerfil !== undefined) {
+      const validacaoFoto = validarFotoPerfil(fotoPerfil);
+      if (!validacaoFoto.ok) {
+        return res.status(400).json({ message: validacaoFoto.message });
+      }
+      updateData.fotoPerfil = fotoPerfil || null;
+    }
+
     await db("Usuarios")
       .where({ id })
       .update(updateData);
 
     const usuario = await db("Usuarios")
       .where({ id })
+      .select("id", "nome", "email", "idade", "peso", "altura", "sexo", "fotoPerfil")
       .first();
 
     res.json(usuario);

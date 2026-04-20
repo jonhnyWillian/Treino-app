@@ -27,7 +27,7 @@ export const treinos = {
       "Levantamento terra",
     ],
     gluteo: [
-      "Hip thrust",
+      "Elevação pélvica",
       "Glute bridge",
       "Coice no cabo",
     ],

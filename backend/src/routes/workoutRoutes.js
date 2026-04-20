@@ -3,7 +3,8 @@ import {
   finalizarTreinoCompleto, 
   listarTreinos, 
   salvarHistorico, 
-  listarHistorico 
+  listarHistorico,
+  resumoDashboard
 } from "../controllers/workoutController.js";
 import { verificarToken } from "../middlewares/authMiddleware.js";
 
@@ -19,5 +20,6 @@ router.get("/listar", listarTreinos);
 // Rotas para Histórico de Treinos
 router.post("/historico/salvar", salvarHistorico);
 router.get("/historico/listar", listarHistorico);
+router.get("/dashboard/resumo", resumoDashboard);
 
 export default router;

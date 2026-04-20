@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   ArrowBackIosNew,
   Edit,
@@ -21,7 +22,15 @@ type Usuario = {
   idade?: number;
   peso?: number;
   altura?: number;
+  fotoPerfil?: string | null;
 };
+
+function metricaApiParaInput(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return String(n);
+}
 
 export default function PerfilPage() {
 
@@ -34,6 +43,7 @@ export default function PerfilPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
 
   const handleRedefinirSenha = () => {
     setShowSettings(false);
@@ -91,8 +101,9 @@ export default function PerfilPage() {
         const data = await getPerfil();
         if (data.nome) {
           setUsuario(data);
-          setPeso(typeof data.peso === "number" ? String(data.peso) : "");
-          setAltura(typeof data.altura === "number" ? String(data.altura) : "");
+          setPeso(metricaApiParaInput(data.peso));
+          setAltura(metricaApiParaInput(data.altura));
+          setFotoPerfil(data.fotoPerfil ?? null);
         } else {
           router.push("/");
         }
@@ -136,22 +147,52 @@ export default function PerfilPage() {
 
     setSalvando(true);
     try {
-      const data = await patchPerfil({ peso: p, altura: a });
+      const data = await patchPerfil({ peso: p, altura: a, fotoPerfil });
 
       if (data.id) {
         setUsuario(data);
-        setPeso(typeof data.peso === "number" ? String(data.peso) : "");
-        setAltura(typeof data.altura === "number" ? String(data.altura) : "");
+        setPeso(metricaApiParaInput(data.peso));
+        setAltura(metricaApiParaInput(data.altura));
+        setFotoPerfil(data.fotoPerfil ?? null);
         toast.success("Alterações salvas!");
       } else {
         throw new Error(data.message || "Erro ao salvar alterações");
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Erro ao salvar alterações.");
+      const message = error instanceof Error ? error.message : "Erro ao salvar alterações.";
+      toast.error(message);
     } finally {
       setSalvando(false);
     }
+  };
+
+  const handleFotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione apenas arquivos de imagem.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      if (!result) {
+        toast.error("Não foi possível carregar a imagem.");
+        return;
+      }
+      setFotoPerfil(result);
+      toast.success("Foto carregada. Clique em salvar alterações.");
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
   };
 
   if (!usuario) {
@@ -163,9 +204,9 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="w-full px-5 pb-32 pt-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="lg:hidden w-10 h-10" /> {/* Espaçador para o botão de menu fixo no mobile */}
+    <div className="mx-auto w-full max-w-3xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+      <div className="mb-8 flex items-center justify-between">
+        <div className="h-10 w-10" />
 
         <button
           type="button"
@@ -176,8 +217,8 @@ export default function PerfilPage() {
           <ArrowBackIosNew fontSize="small" />
         </button>
 
-        <div className="text-green-400 font-extrabold tracking-wider">
-          PERFIL
+        <div className="text-sm font-semibold tracking-wide text-green-400 sm:text-base">
+          Profile
         </div>
 
         <div className="relative">
@@ -193,7 +234,7 @@ export default function PerfilPage() {
           </button>
 
           {showSettings && (
-            <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-50 overflow-hidden">
+            <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#0f1830] shadow-2xl">
               <button
                 onClick={handleRedefinirSenha}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 transition"
@@ -216,105 +257,118 @@ export default function PerfilPage() {
       {/* Avatar */}
       <div className="flex flex-col items-center gap-2">
         <div className="relative">
-          <div className="h-28 w-28 rounded-full bg-slate-900/60 ring-2 ring-slate-700 flex items-center justify-center shadow-[0_0_0_8px_rgba(16,185,129,0.06)]">
-            <Person className="text-white/70" sx={{ fontSize: 72 }} />
+          {/* ✅ "relative" adicionado para o fill do Image funcionar */}
+          <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-[#0d162c] ring-[3px] ring-green-400/90 shadow-[0_0_0_6px_rgba(34,197,94,0.18)]">
+            {fotoPerfil ? (
+              // ✅ Substituído <img> pelo <Image /> do Next.js
+              <Image
+                src={fotoPerfil}
+                alt="Foto de perfil"
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <Person className="text-white/70" sx={{ fontSize: 72 }} />
+            )}
           </div>
-          <button
-            type="button"
-            className="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-green-400 text-slate-950 flex items-center justify-center shadow-lg hover:brightness-110 transition"
+          <label
+            htmlFor="fotoPerfilInput"
+            className="absolute bottom-1 right-0 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:brightness-110"
             aria-label="Editar foto"
+            title="Editar foto"
           >
             <Edit fontSize="small" />
-          </button>
+          </label>
+          <input
+            id="fotoPerfilInput"
+            type="file"
+            accept="image/*"
+            onChange={handleFotoChange}
+            className="hidden"
+          />
         </div>
 
-        <div className="text-3xl font-extrabold">{usuario.nome}</div>
-        <div className="text-white/50 text-sm">{usuario.email}</div>
+        <div className="mt-2 max-w-full truncate text-3xl font-extrabold tracking-tight sm:text-4xl">
+          {usuario.nome}
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-slate-900/40 border border-slate-800 p-5 shadow-sm">
-          <div className="text-4xl font-extrabold text-green-400 text-center">
+      {/* Estatísticas */}
+      <div className="mt-9 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">
+          <div className="text-center text-[10px] tracking-[0.25em] text-white/35">Idade</div>
+          <div className="mt-2 text-center text-4xl font-extrabold text-green-400 sm:text-5xl">
             {usuario.idade ?? "-"}
           </div>
-          <div className="mt-1 text-[11px] tracking-[0.25em] text-white/40 text-center">
-            IDADE
-          </div>
+          <div className="mt-1 text-center text-sm text-white/45">Anos</div>
         </div>
 
-        <div className="rounded-2xl bg-slate-900/40 border border-slate-800 p-5 shadow-sm">
-          <div className="text-4xl font-extrabold text-green-400 text-center">
+        <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">
+          <div className="text-center text-[10px] tracking-[0.25em] text-white/35">IMC</div>
+          <div className="mt-2 text-center text-4xl font-extrabold text-cyan-300 sm:text-5xl">
             {bmi ?? "-"}
-          </div>
-          <div className="mt-1 text-[11px] tracking-[0.25em] text-white/40 text-center">
-            ÍNDICE DE IMC
           </div>
         </div>
       </div>
 
-      {/* Physical Metrics */}
-      <section className="mt-8 rounded-3xl bg-slate-900/35 border border-slate-800 p-5 space-y-4 shadow-sm">
-        <div className="flex items-center gap-2 text-white/80 font-semibold">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-green-400/15 text-green-300 border border-green-400/20">
+      {/* Métricas Físicas */}
+      <section className="mt-10 space-y-4">
+        <div className="flex items-center justify-between gap-3 text-white/85">
+          <span className="text-2xl font-semibold tracking-tight sm:text-4xl">Métricas Físicas</span>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-green-400/20 bg-green-400/15 text-green-300">
             <Settings fontSize="small" />
           </span>
-          <span>Métricas Físicas</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-slate-950/40 border border-slate-800 px-4 py-3">
-            <div className="text-[10px] tracking-[0.25em] text-white/40">
-              PESO (KG)
-            </div>
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-white/10 bg-[#1a2339] px-5 py-4">
+            <div className="text-[11px] tracking-[0.25em] text-white/40">PESO (KG)</div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <input
                 value={peso}
                 onChange={(e) => setPeso(e.target.value)}
                 inputMode="decimal"
-                className="w-full bg-transparent text-white/90 text-lg outline-none"
+                className="w-full bg-transparent text-3xl font-semibold leading-none text-white/90 outline-none sm:text-[38px]"
                 placeholder="—"
               />
-              <div className="text-green-300 font-semibold">kg</div>
+              <div className="text-xl text-white/30">↔</div>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-slate-950/40 border border-slate-800 px-4 py-3">
-            <div className="text-[10px] tracking-[0.25em] text-white/40">
-              ALTURA (M)
-            </div>
+          <div className="rounded-3xl border border-white/10 bg-[#1a2339] px-5 py-4">
+            <div className="text-[11px] tracking-[0.25em] text-white/40">ALTURA (M)</div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <input
                 value={altura}
                 onChange={(e) => setAltura(e.target.value)}
                 inputMode="decimal"
-                className="w-full bg-transparent text-white/90 text-lg outline-none"
+                className="w-full bg-transparent text-3xl font-semibold leading-none text-white/90 outline-none sm:text-[38px]"
                 placeholder="—"
               />
-              <div className="text-green-300 font-semibold">m</div>
+              <div className="text-xl text-white/30">↕</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Actions */}
-      <div className="mt-8 space-y-4">
+      {/* Ações */}
+      <div className="mt-10 space-y-4">
         <button
           type="button"
           onClick={salvarAlteracoes}
           disabled={salvando}
-          className="w-full rounded-2xl py-4 font-extrabold tracking-wide bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-[0_10px_30px_rgba(37,99,235,0.25)]"
+          className="w-full rounded-[32px] bg-blue-600 py-5 text-lg font-extrabold tracking-wide shadow-[0_18px_40px_rgba(37,99,235,0.45)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {salvando ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}
+          {salvando ? "SAVING..." : "SALVAR ALTERAÇÕES"}
         </button>
 
         <button
           type="button"
           onClick={sair}
-          className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 transition font-semibold"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/5 bg-[#101a30] py-4 font-semibold text-white/85 transition hover:bg-white/5"
         >
-          <Logout fontSize="small" />
-          SAIR DA CONTA
+          <Logout fontSize="small" className="text-orange-400" />
+          LOGOUT
         </button>
       </div>
 

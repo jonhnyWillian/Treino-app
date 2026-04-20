@@ -2,15 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { listarHistorico } from "@/services/api";
-import { History, Calendar, ChevronRight } from "lucide-react";
+import {
+  Activity,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Dumbbell,
+  Hand,
+  History,
+  Menu,
+  Zap,
+} from "lucide-react";
 import Image from "next/image";
 
 interface WorkoutHistory {
   id: number;
   NomeTreino: string;
   dataTreino: string;
-  QtdExercicios: number;
-  ExerciciosRealizados: string; // Vem como string separada por vírgula
+  duracaoSegundos?: number | null;
+  ExerciciosRealizados: string;
+  series?: {
+    id: number;
+    exercicioId: number;
+    exercicioNome: string;
+    numeroSerie: number;
+    carga: number | null;
+    repeticoesFeitas: number;
+    concluida: boolean;
+    observacao: string | null;
+  }[];
 }
 
 export default function HistoricoPage() {
@@ -22,9 +42,10 @@ export default function HistoricoPage() {
     async function loadHistory() {
       try {
         const data = await listarHistorico();
-        setHistorico(data);
+        setHistorico(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Erro ao carregar histórico:", err);
+        setHistorico([]);
       } finally {
         setLoading(false);
       }
@@ -44,19 +65,77 @@ export default function HistoricoPage() {
     });
   };
 
+  const formatDuration = (seconds?: number | null) => {
+    if (!seconds || seconds <= 0) return "--:--";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const iconByIndex = [Dumbbell, Zap, Hand, Activity];
+  const totalTreinos = historico.length;
+  const totalVolume = historico.reduce((acc, item) => {
+    const cargaDoTreino = (item.series ?? []).reduce(
+      (sum, serie) => sum + (Number(serie.carga) || 0),
+      0,
+    );
+    return acc + cargaDoTreino;
+  }, 0);
+  const totalDuration = historico.reduce(
+    (acc, item) => acc + (item.duracaoSegundos ?? 0),
+    0,
+  );
+  const totalHours = Math.floor(totalDuration / 3600);
+  const totalMinutes = Math.floor((totalDuration % 3600) / 60);
+
   return (
-    <div className="w-full px-5 pb-32 pt-6">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="lg:hidden w-9 h-9" /> {/* Espaçador para o botão de menu fixo no mobile */}
-        
-        <div className="text-center">
-          <div className="text-lg font-semibold tracking-widest text-emerald-400">
-            HISTÓRICO
+    <div className="mx-auto w-full max-w-4xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-2 text-emerald-400">
+          <Menu size={16} />
+          <div className="text-lg font-semibold tracking-[0.18em] uppercase">
+            Histórico
           </div>
         </div>
+
         <div className="relative h-9 w-9 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
           <Image src="/login-bg.jpg" alt="Perfil" fill className="object-cover opacity-90" />
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-[28px] bg-[#111d33] p-5 ring-1 ring-white/10">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-300/70">
+              Desempenho mensal
+            </div>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <span className="text-4xl font-extrabold leading-none sm:text-5xl">{totalTreinos}</span>
+              <span className="pb-1 text-white/65">Treinos concluídos</span>
+            </div>
+          </div>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-white/35">
+            <Calendar size={26} />
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl bg-[#0f1a2f] p-3 ring-1 ring-white/5">
+            <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
+              Volume total
+            </div>
+            <div className="mt-1 text-xl font-bold text-emerald-300">
+              {totalVolume > 0 ? `${totalVolume.toFixed(1)} kg` : "--"}
+            </div>
+          </div>
+          <div className="rounded-2xl bg-[#0f1a2f] p-3 ring-1 ring-white/5">
+            <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
+              Tempo total
+            </div>
+            <div className="mt-1 text-xl font-bold text-emerald-300">
+              {totalDuration > 0 ? `${totalHours}h ${totalMinutes}m` : "--"}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -70,69 +149,117 @@ export default function HistoricoPage() {
           <p className="text-white/50">Nenhum treino realizado ainda.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {historico.map((item) => {
+        <div className="mt-5 space-y-4">
+          {historico.map((item, index) => {
             const isExpanded = expandedId === item.id;
-            const exercicios = item.ExerciciosRealizados 
-              ? item.ExerciciosRealizados.split(",").map(s => s.trim()) 
-              : [];
+            const exercicios =
+              item.ExerciciosRealizados?.trim()
+                ? item.ExerciciosRealizados.split(",").map((s) => s.trim()).filter(Boolean)
+                : [];
+            const Icon = iconByIndex[index % iconByIndex.length];
+            const groupedSeries = (item.series ?? []).reduce<
+              Record<string, NonNullable<WorkoutHistory["series"]>>
+            >(
+              (acc, serie) => {
+                const key = serie.exercicioNome || "Exercício";
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(serie);
+                return acc;
+              },
+              {},
+            );
+            const qtdExercicios = Object.keys(groupedSeries).length || exercicios.length;
 
             return (
               <div
                 key={item.id}
-                className={`group relative overflow-hidden rounded-[26px] bg-white/5 ring-1 ring-white/10 transition-all duration-300 ${
-                  isExpanded ? "bg-white/10 ring-emerald-400/30" : "hover:bg-white/10"
+                className={`overflow-hidden rounded-[24px] bg-[#101b30] ring-1 ring-white/10 transition-all duration-300 ${
+                  isExpanded ? "ring-emerald-400/35" : "hover:bg-[#15233f]"
                 }`}
               >
                 <button
                   onClick={() => toggleExpand(item.id)}
-                  className="w-full flex items-start justify-between p-5 text-left"
+                  className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left"
                 >
-                  <div className="space-y-1">
-                    <h3 className={`text-lg font-semibold transition-colors ${
-                      isExpanded ? "text-emerald-400" : "text-white group-hover:text-emerald-300"
-                    }`}>
-                      {item.NomeTreino}
-                    </h3>
-                    <div className="flex items-center gap-4 text-xs text-white/50">
-                      <span className="flex items-center gap-1">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/20">
+                      <Icon size={18} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="truncate text-lg font-semibold leading-tight text-white/95 sm:text-[20px] sm:leading-none">
+                        {item.NomeTreino}
+                      </h3>
+                      <div className="flex items-center gap-1 text-xs text-white/50">
                         <Calendar size={12} />
-                        {formatDate(item.dataTreino)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <History size={12} />
-                        {item.QtdExercicios} exercícios
-                      </span>
+                        {formatDate(item.dataTreino)} - {formatDuration(item.duracaoSegundos)}
+                      </div>
                     </div>
                   </div>
-                  <ChevronRight 
-                    size={20} 
-                    className={`text-white/20 transition-transform duration-300 ${
-                      isExpanded ? "rotate-90 text-emerald-400" : "group-hover:text-white/50"
-                    }`} 
-                  />
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-[9px] uppercase tracking-[0.2em] text-white/45">
+                        Exercícios
+                      </div>
+                      <div className="text-2xl font-bold leading-none text-emerald-300">
+                        {qtdExercicios}
+                      </div>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronUp size={17} className="text-white/55" />
+                    ) : (
+                      <ChevronDown size={17} className="text-white/55" />
+                    )}
+                  </div>
                 </button>
 
-                {/* Detalhes Expandidos */}
-                <div 
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    isExpanded ? "max-h-[500px] opacity-100 pb-5 px-5" : "max-h-0 opacity-0"
+                <div
+                  className={`overflow-x-auto overflow-y-hidden transition-all duration-300 ease-in-out ${
+                    isExpanded ? "max-h-[560px] opacity-100 px-4 pb-4" : "max-h-0 opacity-0"
                   }`}
                 >
-                  <div className="pt-2 border-t border-white/5">
-                    <div className="text-[10px] font-bold tracking-widest text-emerald-400/60 uppercase mb-3">
-                      Exercícios Realizados
+                  <div className="rounded-2xl bg-[#0d172a] p-3 ring-1 ring-white/5">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 pb-2 text-[9px] uppercase tracking-[0.15em] text-white/35">
+                      <div>Exercicio</div>
+                      <div>Series</div>
+                      <div>Reps</div>
+                      <div>Peso</div>
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {exercicios.map((ex, idx) => (
-                        <div 
-                          key={idx}
-                          className="flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/5"
-                        >
-                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-                          <span className="text-sm text-white/80">{ex}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      {Object.keys(groupedSeries).length > 0
+                        ? Object.entries(groupedSeries).map(([exerciseName, exerciseSeries]) => {
+                            const totalSeries = exerciseSeries.length;
+                            const doneSeries = exerciseSeries.filter((s) => s.concluida).length;
+                            const reps = exerciseSeries[0]?.repeticoesFeitas ?? 0;
+                            const bestCarga = Math.max(...exerciseSeries.map((s) => Number(s.carga) || 0));
+
+                            return (
+                              <div
+                                key={exerciseName}
+                                className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-xl bg-white/5 p-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-white/90">{exerciseName}</div>
+                                  <div className="text-[9px] uppercase tracking-[0.12em] text-white/35">
+                                    foco: executado
+                                  </div>
+                                </div>
+                                <div className="text-sm font-semibold text-white/75">{doneSeries}/{totalSeries}</div>
+                                <div className="text-sm font-semibold text-white/75">{reps || "--"}</div>
+                                <div className="text-sm font-semibold text-emerald-300">
+                                  {bestCarga > 0 ? `${bestCarga}kg` : "--"}
+                                </div>
+                              </div>
+                            );
+                          })
+                        : exercicios.map((ex, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between rounded-xl bg-white/5 p-2.5"
+                            >
+                              <span className="truncate text-sm text-white/80">{ex}</span>
+                              <span className="text-xs text-white/40">--</span>
+                            </div>
+                          ))}
                     </div>
                   </div>
                 </div>

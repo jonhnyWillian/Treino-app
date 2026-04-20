@@ -1,5 +1,6 @@
 import "@/app/globals.css";
 import NavWrapper from "@/components/navWrapper";
+import { ThemeProvider } from "@/components/themeProvider";
 import { Toaster } from "react-hot-toast";
 // 🔴 GOOGLE TEMPORARIAMENTE DESABILITADO - descomentar quando configurar NEXT_PUBLIC_GOOGLE_CLIENT_ID
 // import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -42,7 +43,7 @@ export default function RootLayout({
   );
 
   const appContent = (
-    <div className="app-wrapper bg-gradient-to-b from-[#0b1220] via-[#070c16] to-[#050812] relative overflow-x-hidden min-h-screen">
+    <div className="app-wrapper relative min-h-screen overflow-x-hidden">
       <AuthGuard>
         <NavWrapper>
           {children}
@@ -52,15 +53,8 @@ export default function RootLayout({
   );
 
   return (
-    <html lang="pt-BR">
-      <body
-        className="
-          bg-slate-950
-          text-white 
-          min-h-screen 
-          antialiased
-        "
-      >
+    <html lang="pt-BR" data-theme="dark">
+      <body className="min-h-screen antialiased">
         {/* 🔴 GOOGLE TEMPORARIAMENTE DESABILITADO
         <GoogleOAuthProvider clientId={googleClientId}>
           {toasterConfig}
@@ -69,8 +63,10 @@ export default function RootLayout({
         */}
 
         {/* ✅ SEM GOOGLE - remover este bloco ao reativar o Google */}
-        {toasterConfig}
-        {appContent}
+        <ThemeProvider>
+          {toasterConfig}
+          {appContent}
+        </ThemeProvider>
         {/* fim do bloco sem Google */}
 
       </body>

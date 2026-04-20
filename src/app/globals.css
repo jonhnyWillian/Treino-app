@@ -1,31 +1,32 @@
 @import "tailwindcss";
 
-/* =========================
-   Variáveis de cores
-   ========================= */
-
-:root {
-  --background: #0f172a;
+/* Tokens de tema (controlados por data-theme no html) */
+:root[data-theme="dark"] {
+  --background: #050812;
   --foreground: #f8fafc;
-
+  --surface: #0f1a31;
+  --surface-2: #0b1220;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(248, 250, 252, 0.6);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --gradient-start: #0b1220;
+  --gradient-mid: #070c16;
+  --gradient-end: #050812;
   --primary: #22c55e;
-  --secondary: #3b82f6;
-
-  --card: #1e293b;
-  --border: #334155;
-
-  --muted: #94a3b8;
 }
 
-/* =========================
-   Modo escuro automático
-   ========================= */
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #f1f5f9;
-  }
+:root[data-theme="light"] {
+  --background: #f3f6fc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-2: #e7edf8;
+  --border: rgba(15, 23, 42, 0.12);
+  --muted: rgba(15, 23, 42, 0.7);
+  --overlay: rgba(15, 23, 42, 0.35);
+  --gradient-start: #eef3ff;
+  --gradient-mid: #f9fbff;
+  --gradient-end: #e8f0ff;
+  --primary: #16a34a;
 }
 
 /* =========================
@@ -33,11 +34,11 @@
    ========================= */
 
 body {
-  background-color: #050812;
-  color: white;
+  background-color: var(--background);
+  color: var(--foreground);
   overflow-x: hidden;
-  /* Melhora o scroll no mobile */
   -webkit-overflow-scrolling: touch;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 /* Garante que o app ocupe a altura total no mobile */
@@ -54,6 +55,69 @@ html, body {
   margin-right: auto;
   display: flex;
   flex-direction: column;
+  background-image: linear-gradient(to bottom, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
+}
+
+.theme-surface {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.theme-surface-solid {
+  background: var(--surface);
+  border-color: var(--border);
+  backdrop-filter: none;
+}
+
+.theme-surface-soft {
+  background: color-mix(in srgb, var(--surface), transparent 15%);
+  border-color: var(--border);
+}
+
+.theme-text-muted {
+  color: var(--muted);
+}
+
+.theme-icon-btn {
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-2), transparent 15%);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  transition: transform 120ms ease, opacity 120ms ease;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.2);
+}
+
+.theme-icon-btn:hover {
+  opacity: 0.9;
+}
+
+.theme-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.theme-toggle-btn {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2), transparent 15%);
+  color: var(--foreground);
+  height: 3rem;
+  min-width: 3rem;
+  padding: 0 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.2);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.96);
+}
+
+.theme-overlay {
+  background: var(--overlay);
 }
 
 @media (min-width: 1024px) {
