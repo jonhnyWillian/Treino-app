@@ -112,6 +112,16 @@ async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
   }
 }
 
+async function readResponseData(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  return text;
+}
+
 export async function login(email: string, senha: string) {
   try {
     const response = await fetch(`${API_URL}/users/login`, {
@@ -269,10 +279,17 @@ export async function redefinirSenhaLogado(novaSenha: string) {
       method: "POST",
       body: JSON.stringify({ novaSenha }),
     });
-    return response.json();
+    const data = await readResponseData(response);
+    if (!response.ok) {
+      const message = typeof data === "object" && data && "message" in data
+        ? String((data as { message?: string }).message || "Erro ao redefinir senha")
+        : "Erro ao redefinir senha";
+      throw new Error(message);
+    }
+    return data;
   } catch (error) {
     console.error("Erro na função redefinirSenhaLogado:", error);
-    return { message: "Erro ao redefinir senha" };
+    throw error;
   }
 }
 
@@ -292,9 +309,21 @@ export async function patchPerfil(dados: PerfilDados) {
       method: "PATCH",
       body: JSON.stringify(dados),
     });
-    return response.json();
+    const data = await readResponseData(response);
+    if (!response.ok) {
+      const message = response.status === 413
+        ? "Imagem muito grande. Escolha uma foto menor."
+        : typeof data === "object" && data && "message" in data
+          ? String((data as { message?: string }).message || "Erro ao atualizar perfil")
+          : "Erro ao atualizar perfil";
+      throw new Error(message);
+    }
+    if (typeof data === "object" && data) {
+      return data;
+    }
+    throw new Error("Resposta inválida ao atualizar perfil");
   } catch (error) {
     console.error("Erro na função patchPerfil:", error);
-    return { message: "Erro ao atualizar perfil" };
+    throw error;
   }
 }

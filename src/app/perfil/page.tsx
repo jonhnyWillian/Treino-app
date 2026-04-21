@@ -25,31 +25,83 @@ type Usuario = {
   fotoPerfil?: string | null;
 };
 
+/**
+ * Converte um valor vindo da API (peso ou altura) para string usada nos inputs.
+ *
+ * A API pode retornar números, strings, null ou undefined dependendo do estado do perfil.
+ * Esta função normaliza todos esses casos:
+ * - Valores inválidos (null, undefined, string vazia, não finito, <= 0) → retorna ""
+ * - Valores válidos → retorna a representação em string do número
+ * Isso evita exibir "0", "null" ou NaN nos inputs de métricas.
+ */
 function metricaApiParaInput(v: unknown): string {
-  if (v === null || v === undefined || v === "") return "";
+  if (v === null || v === undefined || v === "") {
+    return "";
+  }
   const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isFinite(n) || n <= 0) return "";
+  if (!Number.isFinite(n) || n <= 0) {
+    return "";
+  }
   return String(n);
 }
 
-export default function PerfilPage() {
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const imageBitmap = await createImageBitmap(file);
+  const maxSide = 720;
+  const scale = Math.min(1, maxSide / Math.max(imageBitmap.width, imageBitmap.height));
+  const targetWidth = Math.max(1, Math.round(imageBitmap.width * scale));
+  const targetHeight = Math.max(1, Math.round(imageBitmap.height * scale));
 
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Não foi possível processar a imagem.");
+  }
+
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+  imageBitmap.close();
+
+  return canvas.toDataURL("image/jpeg", 0.75);
+}
+
+export default function PerfilPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [peso, setPeso] = useState<string>("");
   const [altura, setAltura] = useState<string>("");
   const [salvando, setSalvando] = useState(false);
+  // Controla a visibilidade do menu dropdown de configurações (redefinir senha, desativar conta)
   const [showSettings, setShowSettings] = useState(false);
+  // Controla a visibilidade do modal de redefinição de senha
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
+  // Armazena a foto de perfil como base64 ou URL; null exibe o ícone padrão
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
 
+  /**
+   * Fecha o dropdown de configurações e abre o modal de redefinição de senha.
+   *
+   * Separado em função própria para garantir que o menu sempre feche
+   * antes de o modal aparecer, evitando sobreposição visual.
+   */
   const handleRedefinirSenha = () => {
     setShowSettings(false);
     setShowPasswordModal(true);
   };
 
+  /**
+   * Valida e envia a nova senha do usuário para a API.
+   *
+   * Realiza duas validações antes de chamar a API:
+   * 1. Comprimento mínimo de 8 caracteres.
+   * 2. Confirmação idêntica à nova senha.
+   * Em caso de sucesso, fecha o modal e limpa os campos para não vazar a senha no estado.
+   * Em caso de falha, exibe a mensagem de erro retornada pela API ou um erro genérico.
+   */
   const confirmarRedefinirSenha = async () => {
     if (!novaSenha || novaSenha.length < 8) {
       toast.error("A senha deve ter pelo menos 8 caracteres.");
@@ -62,22 +114,25 @@ export default function PerfilPage() {
     }
 
     try {
-      const res = await redefinirSenhaLogado(novaSenha);
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("Senha redefinida com sucesso!");
-        setShowPasswordModal(false);
-        setNovaSenha("");
-        setConfirmarSenha("");
-      } else {
-        toast.error(data.message || "Erro ao redefinir senha.");
-      }
+      await redefinirSenhaLogado(novaSenha);
+      toast.success("Senha redefinida com sucesso!");
+      setShowPasswordModal(false);
+      setNovaSenha("");
+      setConfirmarSenha("");
     } catch (err) {
       console.error(err);
-      toast.error("Erro na conexão com o servidor.");
+      const message = err instanceof Error ? err.message : "Erro na conexão com o servidor.";
+      toast.error(message);
     }
   };
 
+  /**
+   * Solicita confirmação do usuário e desativa a conta na API.
+   *
+   * Usa `confirm()` nativo como barreira de segurança para evitar desativações acidentais.
+   * Em caso de sucesso, chama `sair()` para limpar o storage e redirecionar ao login,
+   * pois a conta desativada não pode mais ser usada para autenticação.
+   */
   const handleDesativarConta = async () => {
     if (!confirm("Tem certeza que deseja desativar sua conta? Você não poderá mais fazer login.")) return;
 
@@ -95,6 +150,14 @@ export default function PerfilPage() {
     }
   };
 
+  /**
+   * Busca os dados do perfil do usuário autenticado ao montar o componente.
+   *
+   * Após receber os dados da API, popula os estados com os valores normalizados
+   * via `metricaApiParaInput` para garantir compatibilidade com os inputs controlados.
+   * Se a resposta não contiver `nome` (perfil inválido ou não autenticado),
+   * redireciona para a raiz. O mesmo ocorre em caso de erro de rede.
+   */
   useEffect(() => {
     const buscarUsuario = async () => {
       try {
@@ -117,6 +180,15 @@ export default function PerfilPage() {
     buscarUsuario();
   }, [router]);
 
+  /**
+   * Calcula o IMC (Índice de Massa Corporal) de forma reativa com `useMemo`.
+   *
+   * Recalcula automaticamente sempre que peso ou altura mudam.
+   * Retorna null para qualquer combinação inválida (valores não finitos, zero ou negativos),
+   * evitando exibir resultados sem sentido enquanto o usuário digita.
+   * O resultado é arredondado para uma casa decimal (ex: 24.9).
+   * Fórmula: IMC = peso / (altura²)
+   */
   const bmi = useMemo(() => {
     const p = Number(peso);
     const a = Number(altura);
@@ -126,12 +198,28 @@ export default function PerfilPage() {
     return Math.round(value * 10) / 10;
   }, [peso, altura]);
 
+  /**
+   * Encerra a sessão do usuário removendo os dados do localStorage e redirecionando ao login.
+   *
+   * Remove tanto o token de autenticação quanto o objeto do usuário para garantir
+   * que nenhuma informação sensível fique armazenada após o logout.
+   */
   const sair = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
     router.push("/");
   };
 
+  /**
+   * Valida e envia as alterações de peso, altura e foto de perfil para a API.
+   *
+   * Campos em branco são enviados como `undefined` (sem alteração no backend).
+   * Realiza validação client-side dos valores numéricos antes de chamar a API,
+   * evitando requisições desnecessárias com dados inválidos.
+   * Em caso de sucesso, atualiza o estado local com os dados retornados pela API,
+   * garantindo que os inputs reflitam os valores efetivamente salvos.
+   * O `finally` garante que o estado de loading seja sempre desativado.
+   */
   const salvarAlteracoes = async () => {
     const p = peso.trim() === "" ? undefined : Number(peso);
     const a = altura.trim() === "" ? undefined : Number(altura);
@@ -154,6 +242,20 @@ export default function PerfilPage() {
         setPeso(metricaApiParaInput(data.peso));
         setAltura(metricaApiParaInput(data.altura));
         setFotoPerfil(data.fotoPerfil ?? null);
+        const userStr = localStorage.getItem("usuario");
+        if (userStr) {
+          try {
+            const storedUser = JSON.parse(userStr);
+            localStorage.setItem(
+              "usuario",
+              JSON.stringify({
+                ...storedUser,
+                fotoPerfil: data.fotoPerfil ?? null,
+                sexo: data.sexo ?? storedUser.sexo,
+              }),
+            );
+          } catch { }
+        }
         toast.success("Alterações salvas!");
       } else {
         throw new Error(data.message || "Erro ao salvar alterações");
@@ -167,7 +269,18 @@ export default function PerfilPage() {
     }
   };
 
-  const handleFotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Processa o arquivo de imagem selecionado pelo usuário e converte para base64.
+   *
+   * Realiza duas validações antes de processar:
+   * 1. Tipo MIME deve ser de imagem (evita uploads de PDFs, vídeos etc.).
+   * 2. Tamanho máximo de 2MB para não sobrecarregar a API com payloads grandes.
+   *
+   * Usa `FileReader.readAsDataURL` para converter a imagem em base64,
+   * que é salva no estado e enviada junto com as demais alterações do perfil.
+   * O campo de input é resetado após a leitura para permitir selecionar o mesmo arquivo novamente.
+   */
+  const handleFotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -176,25 +289,31 @@ export default function PerfilPage() {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("A imagem deve ter no máximo 2MB.");
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 8MB.");
+      event.target.value = "";
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : null;
-      if (!result) {
-        toast.error("Não foi possível carregar a imagem.");
+    try {
+      const result = await compressImageToDataUrl(file);
+      if (result.length > 900_000) {
+        toast.error("A imagem ainda está grande. Use uma foto menor.");
+        event.target.value = "";
         return;
       }
       setFotoPerfil(result);
       toast.success("Foto carregada. Clique em salvar alterações.");
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível processar a imagem.");
+    }
+
+    // Reseta o valor do input para permitir selecionar o mesmo arquivo novamente se necessário
     event.target.value = "";
   };
 
+  // Exibe tela de carregamento enquanto os dados do perfil ainda não chegaram da API
   if (!usuario) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center p-6">
@@ -205,6 +324,7 @@ export default function PerfilPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+      {/* Header: botão voltar à esquerda, título centralizado e menu de configurações à direita */}
       <div className="mb-8 flex items-center justify-between">
         <div className="h-10 w-10" />
 
@@ -218,16 +338,16 @@ export default function PerfilPage() {
         </button>
 
         <div className="text-sm font-semibold tracking-wide text-green-400 sm:text-base">
-          Profile
+          Perfil
         </div>
 
+        {/* Botão de configurações com dropdown de ações sensíveis (senha e desativação de conta) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowSettings(!showSettings)}
-            className={`rounded-full p-2 transition ${
-              showSettings ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
-            }`}
+            className={`rounded-full p-2 transition ${showSettings ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
+              }`}
             aria-label="Configurações"
           >
             <Settings fontSize="small" />
@@ -242,6 +362,7 @@ export default function PerfilPage() {
                 <LockReset fontSize="small" />
                 Redefinir Senha
               </button>
+              {/* Ação destrutiva: cor vermelha para destacar o risco da ação */}
               <button
                 onClick={handleDesativarConta}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-400/5 transition"
@@ -254,23 +375,24 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      {/* Avatar */}
+      {/* Avatar: exibe foto personalizada (base64 ou URL) ou ícone padrão quando não há foto */}
       <div className="flex flex-col items-center gap-2">
         <div className="relative">
-          {/* ✅ "relative" adicionado para o fill do Image funcionar */}
+          {/* "relative" necessário para o fill do Image do Next.js funcionar corretamente */}
           <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-[#0d162c] ring-[3px] ring-green-400/90 shadow-[0_0_0_6px_rgba(34,197,94,0.18)]">
             {fotoPerfil ? (
-              // ✅ Substituído <img> pelo <Image /> do Next.js
               <Image
                 src={fotoPerfil}
                 alt="Foto de perfil"
                 fill
+                sizes="128px"
                 className="object-cover"
               />
             ) : (
               <Person className="text-white/70" sx={{ fontSize: 72 }} />
             )}
           </div>
+          {/* Label funciona como botão de upload: aciona o input file oculto ao clicar */}
           <label
             htmlFor="fotoPerfilInput"
             className="absolute bottom-1 right-0 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:brightness-110"
@@ -279,6 +401,7 @@ export default function PerfilPage() {
           >
             <Edit fontSize="small" />
           </label>
+          {/* Input file oculto: aceita apenas imagens e delega o processamento a handleFotoChange */}
           <input
             id="fotoPerfilInput"
             type="file"
@@ -288,16 +411,18 @@ export default function PerfilPage() {
           />
         </div>
 
+        {/* Exibe apenas o nome completo; truncate evita quebra de layout com nomes longos */}
         <div className="mt-2 max-w-full truncate text-3xl font-extrabold tracking-tight sm:text-4xl">
           {usuario.nome}
         </div>
       </div>
 
-      {/* Estatísticas */}
+      {/* Cards de estatísticas: idade fixa (vinda da API) e IMC calculado em tempo real */}
       <div className="mt-9 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">
           <div className="text-center text-[10px] tracking-[0.25em] text-white/35">Idade</div>
           <div className="mt-2 text-center text-4xl font-extrabold text-green-400 sm:text-5xl">
+            {/* Exibe "-" quando a idade não foi cadastrada no perfil */}
             {usuario.idade ?? "-"}
           </div>
           <div className="mt-1 text-center text-sm text-white/45">Anos</div>
@@ -306,12 +431,13 @@ export default function PerfilPage() {
         <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">
           <div className="text-center text-[10px] tracking-[0.25em] text-white/35">IMC</div>
           <div className="mt-2 text-center text-4xl font-extrabold text-cyan-300 sm:text-5xl">
+            {/* Exibe "-" quando peso ou altura são inválidos (bmi retorna null via useMemo) */}
             {bmi ?? "-"}
           </div>
         </div>
       </div>
 
-      {/* Métricas Físicas */}
+      {/* Seção de métricas físicas: inputs controlados para peso e altura */}
       <section className="mt-10 space-y-4">
         <div className="flex items-center justify-between gap-3 text-white/85">
           <span className="text-2xl font-semibold tracking-tight sm:text-4xl">Métricas Físicas</span>
@@ -321,6 +447,7 @@ export default function PerfilPage() {
         </div>
 
         <div className="space-y-4">
+          {/* Input de peso: inputMode="decimal" abre teclado numérico com vírgula em mobile */}
           <div className="rounded-3xl border border-white/10 bg-[#1a2339] px-5 py-4">
             <div className="text-[11px] tracking-[0.25em] text-white/40">PESO (KG)</div>
             <div className="mt-2 flex items-center justify-between gap-3">
@@ -335,6 +462,7 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          {/* Input de altura: mesmo padrão do peso, em metros (ex: 1.75) */}
           <div className="rounded-3xl border border-white/10 bg-[#1a2339] px-5 py-4">
             <div className="text-[11px] tracking-[0.25em] text-white/40">ALTURA (M)</div>
             <div className="mt-2 flex items-center justify-between gap-3">
@@ -351,8 +479,9 @@ export default function PerfilPage() {
         </div>
       </section>
 
-      {/* Ações */}
+      {/* Área de ações: salvar alterações e logout */}
       <div className="mt-10 space-y-4">
+        {/* Botão desabilitado durante o salvamento para evitar requisições duplicadas */}
         <button
           type="button"
           onClick={salvarAlteracoes}
@@ -372,7 +501,7 @@ export default function PerfilPage() {
         </button>
       </div>
 
-      {/* Modal Redefinir Senha */}
+      {/* Modal de redefinição de senha: sobrepõe toda a tela com backdrop blur */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[32px] bg-slate-950 p-8 border border-white/10 shadow-2xl space-y-6">
@@ -408,6 +537,7 @@ export default function PerfilPage() {
               </div>
             </div>
 
+            {/* Botões do modal: cancelar limpa os campos sem salvar; confirmar aciona a API */}
             <div className="flex gap-3">
               <button
                 onClick={() => {

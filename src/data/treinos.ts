@@ -28,7 +28,7 @@ export const treinos = {
     ],
     gluteo: [
       "Elevação pélvica",
-      "Glute bridge",
+      "Abdução no cabo",
       "Coice no cabo",
     ],
     panturrilha: [

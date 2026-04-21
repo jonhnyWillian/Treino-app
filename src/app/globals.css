@@ -6,6 +6,9 @@
   --foreground: #f8fafc;
   --surface: #0f1a31;
   --surface-2: #0b1220;
+  --card: #0f1a31;
+  --input-bg: #020617;
+  --input-text: #f8fafc;
   --border: rgba(255, 255, 255, 0.1);
   --muted: rgba(248, 250, 252, 0.6);
   --overlay: rgba(0, 0, 0, 0.6);
@@ -20,6 +23,9 @@
   --foreground: #0f172a;
   --surface: #ffffff;
   --surface-2: #e7edf8;
+  --card: #ffffff;
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
   --border: rgba(15, 23, 42, 0.12);
   --muted: rgba(15, 23, 42, 0.7);
   --overlay: rgba(15, 23, 42, 0.35);
@@ -39,6 +45,8 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   transition: background-color 200ms ease, color 200ms ease;
+  display: flex;
+  justify-content: center;
 }
 
 /* Garante que o app ocupe a altura total no mobile */
@@ -50,12 +58,15 @@ html, body {
 /* Container principal para manter o aspecto de App no Desktop */
 .app-wrapper {
   width: 100%;
-  min-height: 100vh;
+  max-width: 460px;
+  min-height: 100dvh;
   margin-left: auto;
   margin-right: auto;
   display: flex;
   flex-direction: column;
   background-image: linear-gradient(to bottom, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .theme-surface {
@@ -120,9 +131,11 @@ html, body {
   background: var(--overlay);
 }
 
-@media (min-width: 1024px) {
+@media (max-width: 640px) {
   .app-wrapper {
-    flex-direction: row;
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
   }
 }
 
@@ -188,7 +201,8 @@ html, body {
    ========================= */
 
 .input {
-  background: #020617;
+  background: var(--input-bg);
+  color: var(--input-text);
   border: 1px solid var(--border);
   border-radius: 10px;
 
@@ -212,10 +226,10 @@ textarea:-webkit-autofill,
 textarea:-webkit-autofill:hover,
 textarea:-webkit-autofill:focus,
 select:-webkit-autofill {
-  -webkit-text-fill-color: #f8fafc !important;
-  caret-color: #f8fafc;
+  -webkit-text-fill-color: var(--input-text) !important;
+  caret-color: var(--input-text);
   /* Fundo sólido: opacidade + box-shadow sozinho falha em alguns builds do Chrome */
-  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
-  box-shadow: 0 0 0 1000px #020617 inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
   transition: background-color 99999s ease-out 0s;
 }

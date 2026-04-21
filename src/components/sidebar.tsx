@@ -71,6 +71,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   src={getProfileImage()} 
                   alt="Perfil" 
                   fill
+                  sizes="48px"
                   className="object-cover"
                 />
               </div>

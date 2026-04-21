@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import BottomNav from "@/components/bottomNav";
 import Sidebar from "@/components/sidebar";
-import ThemeToggle from "@/components/themeToggle";
 import { Menu } from "lucide-react";
 
 export default function NavWrapper({ children }: { children: React.ReactNode }) {
@@ -22,8 +21,8 @@ export default function NavWrapper({ children }: { children: React.ReactNode }) 
 
   if (shouldHide) {
     return (
-      <main className="w-full flex flex-col items-center justify-center">
-        <div className="w-full max-w-md">
+      <main className="w-full min-h-dvh flex flex-col items-center justify-center px-4 py-6">
+        <div className="w-full max-w-[460px]">
           {children}
         </div>
       </main>
@@ -31,22 +30,13 @@ export default function NavWrapper({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex min-h-screen w-full">
-      {/* Sidebar - Handles its own desktop visibility via CSS */}
+    <div className="flex min-h-dvh w-full">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Main Content Area */}
       <main
-        className={`w-full flex-1 pt-20 transition-all duration-300 sm:pt-24 lg:pt-0 ${
-          isSidebarOpen ? "lg:pl-[280px]" : "lg:pl-0"
-        }`}
+        className="w-full flex-1 pt-20 pb-24 transition-all duration-300 sm:pt-24"
       >
-        <div className="fixed right-4 top-4 z-[55] sm:right-6 sm:top-6">
-          <ThemeToggle />
-        </div>
-
-        {/* Mobile Menu Button - Fixed at top-left */}
-        <div className={`fixed left-4 top-4 z-[55] sm:left-6 sm:top-6 ${isSidebarOpen ? "lg:hidden" : ""}`}>
+        <div className="fixed left-4 top-4 z-[55] sm:left-6 sm:top-6">
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="theme-icon-btn p-3"
@@ -59,8 +49,7 @@ export default function NavWrapper({ children }: { children: React.ReactNode }) 
         {children}
       </main>
 
-      {/* Bottom Nav - Only visible on mobile */}
-      <div className="lg:hidden">
+      <div>
         <BottomNav />
       </div>
     </div>

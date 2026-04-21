@@ -120,6 +120,7 @@ export default function TipoTreinoSelector({ onSelectTreino }: TipoTreinoProps) 
               src="/login-bg.jpg"
               alt="Foto de perfil"
               fill
+              sizes="36px"
               className="object-cover opacity-90"
               priority
             />
@@ -287,6 +288,7 @@ export default function TipoTreinoSelector({ onSelectTreino }: TipoTreinoProps) 
                     src="/login-bg.jpg"
                     alt="Exercício"
                     fill
+                    sizes="56px"
                     className="object-cover opacity-80"
                   />
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/30" />

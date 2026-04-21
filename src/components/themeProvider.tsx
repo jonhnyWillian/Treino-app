@@ -18,54 +18,24 @@ const STORAGE_KEY = "theme-preference";
 // ✅ Verifica se está no browser antes de acessar APIs do cliente
 const isBrowser = typeof window !== "undefined";
 
-const getSystemTheme = (): Theme => {
-  if (!isBrowser) return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-};
-
-const resolveTheme = (preference: ThemePreference): Theme => {
-  if (preference === "system") return getSystemTheme();
-  return preference;
-};
-
-const getInitialPreference = (): ThemePreference => {
-  if (!isBrowser) return "system"; // ✅ SSR: retorna padrão sem acessar localStorage
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" ? stored : "system";
-};
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>(getInitialPreference);
-  const [theme, setTheme] = useState<Theme>(() => resolveTheme(getInitialPreference()));
+  const [preference, setPreferenceState] = useState<ThemePreference>("dark");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  useEffect(() => {
-    if (!isBrowser) return;
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleSystemChange = () => {
-      if (preference !== "system") return;
-      setTheme(getSystemTheme());
-    };
-
-    mediaQuery.addEventListener("change", handleSystemChange);
-    return () => mediaQuery.removeEventListener("change", handleSystemChange);
-  }, [preference]);
-
-  const setPreference = (value: ThemePreference) => {
-    setPreferenceState(value);
-    if (value === "system") {
-      localStorage.removeItem(STORAGE_KEY);
-    } else {
-      localStorage.setItem(STORAGE_KEY, value);
-    }
-    setTheme(resolveTheme(value));
+  const setPreference = (_value: ThemePreference) => {
+    // Tema fixo em dark: mantém API sem permitir alternância visual.
+    setPreferenceState("dark");
+    setTheme("dark");
+    if (isBrowser) localStorage.setItem(STORAGE_KEY, "dark");
   };
 
   const toggleTheme = () => {
-    setPreference(theme === "dark" ? "light" : "dark");
+    // Alternância desativada propositalmente.
+    setPreference("dark");
   };
 
   return (
