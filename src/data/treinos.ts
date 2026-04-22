@@ -17,6 +17,7 @@ export const treinos = {
   inferior: {
     quadriceps: [
       "Agachamento livre",
+      "Hack",
       "Leg press",
       "Cadeira extensora",
       "Afundo",
@@ -42,6 +43,9 @@ export const treinos = {
       "Supino reto",
       "Supino inclinado",
       "Crucifixo",
+      "Voador",
+      "Crossover polia alta",
+      "Crossover polia baixa",
     ],
     costas: [
       "Puxada frente",
@@ -60,8 +64,10 @@ export const treinos = {
     ],
     triceps: [
       "Tríceps corda",
-      "Tríceps testa",
+      //"Tríceps testa",
       "Mergulho",
+      "Tríceps Francês",
+      "Tríceps Unilateral"
     ],
   },
 };

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Dumbbell, Flame, Plus, Timer, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getDashboardResumo, type DashboardResumoResponse } from "@/services/api";
+import { getDashboardResumo, getPerfil, type DashboardResumoResponse } from "@/services/api";
 
 export default function DashboardPage() {
   const [userGender, setUserGender] = useState<string | null>(null);
@@ -54,6 +54,13 @@ export default function DashboardPage() {
         }
         catch { }
       }
+
+      try {
+        const perfil = await getPerfil();
+        if (perfil?.nome) setUserName(perfil.nome);
+        if (perfil?.sexo) setUserGender(perfil.sexo);
+        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
+      } catch { }
 
       const resumo = await getDashboardResumo();
       setDashboardData(resumo);

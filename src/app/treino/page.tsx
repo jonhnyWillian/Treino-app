@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Play, Plus } from "lucide-react";
 import toast from "react-hot-toast";
+import { getPerfil } from "@/services/api";
 
 /**
  * Mapa de imagens por exercício.
@@ -14,6 +15,7 @@ import toast from "react-hot-toast";
  */
 const exerciseImageMap: Record<string, string> = {
   "agachamento livre": "/imagens/exercicios/exerciciosInferior/agachamentoLivre.png",
+  "hack": "/imagens/exercicios/exerciciosInferior/hack.png",
   "leg press": "/imagens/exercicios/exerciciosInferior/legpress.png",
   "cadeira extensora": "/imagens/exercicios/exerciciosInferior/cadeiraExtensora.png",
   "afundo": "/imagens/exercicios/exerciciosInferior/afundo.png",
@@ -27,6 +29,7 @@ const exerciseImageMap: Record<string, string> = {
   "panturrilha sentado": "/imagens/exercicios/exerciciosInferior/panturrilhaSentado.png",
   "supino reto": "/imagens/exercicios/exericiosSuperior/supinoReto.png",
   "supino inclinado": "/imagens/exercicios/exericiosSuperior/supinoInclinado.png",
+  "voador": "/imagens/exercicios/exericiosSuperior/voador.png",
   "crucifixo": "/imagens/exercicios/exericiosSuperior/crucifixo.png",
   "puxada frente": "/imagens/exercicios/exericiosSuperior/puxadaFrente.png",
   "remada curvada": "/imagens/exercicios/exericiosSuperior/remadaCurvada.png",
@@ -38,8 +41,12 @@ const exerciseImageMap: Record<string, string> = {
   "rosca alternada": "/imagens/exercicios/exericiosSuperior/roscaAlternada.png",
   "rosca martelo": "/imagens/exercicios/exericiosSuperior/roscaMartelo.png",
   "triceps corda": "/imagens/exercicios/exericiosSuperior/tricepsCorda.png",
-  "triceps testa": "/imagens/exercicios/exericiosSuperior/tricepsTesta.png",
+  //"triceps testa": "/imagens/exercicios/exericiosSuperior/tricepsTesta.png",
   "mergulho": "/imagens/exercicios/exericiosSuperior/mergulhoTriceps.png",
+  "triceps frances":"/imagens/exercicios/exericiosSuperior/tricepsFrances.png",
+  "triceps unilateral": "/imagens/exercicios/exericiosSuperior/tricepsUnilateral.png",
+  "crossover polia alta": "/imagens/exercicios/exericiosSuperior/crossOverAlta.png",
+  "crossover polia baixa" : "/imagens/exercicios/exericiosSuperior/crossOverBaixa.png",
 };
 
 /**
@@ -66,7 +73,7 @@ export default function TreinoPage() {
    * O setTimeout evita erros de "cascading renders" no React 19 durante a hidratação.
    */
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       const userStr = localStorage.getItem("usuario");
       if (userStr) {
         try {
@@ -75,6 +82,12 @@ export default function TreinoPage() {
           if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
         } catch { }
       }
+
+      try {
+        const perfil = await getPerfil();
+        if (perfil?.sexo) setUserGender(perfil.sexo);
+        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
+      } catch { }
     }, 0);
 
     return () => clearTimeout(timeout);
@@ -448,14 +461,7 @@ export default function TreinoPage() {
                       {meta.reps} {meta.suffix === "REPS" ? "Repetições" : "Passos"}
                     </span>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15 hover:bg-white/20"
-                  aria-label="Adicionar exercício"
-                >
-                  <Plus size={20} className="text-emerald-300" />
-                </button>
+                </div>             
               </div>
             );
           })}

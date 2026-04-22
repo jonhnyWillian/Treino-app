@@ -424,8 +424,7 @@ export default function PerfilPage() {
           <div className="mt-2 text-center text-4xl font-extrabold text-green-400 sm:text-5xl">
             {/* Exibe "-" quando a idade não foi cadastrada no perfil */}
             {usuario.idade ?? "-"}
-          </div>
-          <div className="mt-1 text-center text-sm text-white/45">Anos</div>
+          </div>          
         </div>
 
         <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">

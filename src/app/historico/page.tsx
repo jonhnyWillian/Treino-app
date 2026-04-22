@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listarHistorico } from "@/services/api";
+import { getPerfil, listarHistorico } from "@/services/api";
 import {
   Activity,
   Calendar,
@@ -59,6 +59,12 @@ export default function HistoricoPage() {
           if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
         } catch { }
       }
+
+      try {
+        const perfil = await getPerfil();
+        if (perfil?.sexo) setUserGender(perfil.sexo);
+        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
+      } catch { }
 
       try {
         const data = await listarHistorico();

@@ -4,8 +4,8 @@ import Image from "next/image";
 import { treinos, TipoTreino } from "@/data/treinos";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Check, MoreVertical,  Play, X } from "lucide-react";
-import { finalizarTreino } from "@/services/api";
+import { Check, Play, X } from "lucide-react";
+import { finalizarTreino, getPerfil } from "@/services/api";
 import toast from "react-hot-toast";
 
 /**
@@ -23,6 +23,7 @@ export default function TreinoExecucaoPage() {
 
   // Gênero do usuário — controla qual foto de perfil exibir
   const [userGender, setUserGender] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   // Configuração do treino lida do sessionStorage (tipo, dia e grupos musculares)
   const [config, setConfig] = useState<TrainingConfig | null>(null);
@@ -55,14 +56,21 @@ export default function TreinoExecucaoPage() {
    * O setTimeout evita erros de hidratação no React 19.
    */
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       const userStr = localStorage.getItem("usuario");
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
           if (user.sexo) setUserGender(user.sexo);
+          if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
         } catch { }
       }
+
+      try {
+        const perfil = await getPerfil();
+        if (perfil?.sexo) setUserGender(perfil.sexo);
+        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
+      } catch { }
 
       const configStr = sessionStorage.getItem("ATIVOTrainingConfig");
       if (!configStr) {
@@ -86,6 +94,24 @@ export default function TreinoExecucaoPage() {
 
     return () => clearTimeout(timeout);
   }, [router]);
+
+  /**
+   * Keep-alive da sessão durante o treino em execução.
+   *
+   * Enquanto esta tela estiver aberta, faz uma chamada periódica à API para
+   * evitar expiração por inatividade em backends com expiração deslizante.
+   * Se a sessão já tiver expirado, o fluxo padrão de autenticação da API
+   * continua responsável pelo redirecionamento para login.
+   */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void getPerfil().catch(() => {
+        // Falha é tratada no fluxo global de autenticação.
+      });
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   /**
    * Cronômetro do treino — atualiza o tempo decorrido a cada segundo.
@@ -300,7 +326,7 @@ export default function TreinoExecucaoPage() {
           <div className="flex items-center gap-2">
             <div className="relative h-9 w-9 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
               <Image
-                src={getProfileImage()}
+                src={profilePhoto || getProfileImage()}
                 alt="Foto de perfil"
                 fill
                 sizes="36px"
@@ -308,13 +334,7 @@ export default function TreinoExecucaoPage() {
                 priority
               />
             </div>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 ring-1 ring-white/10"
-              aria-label="Mais opções"
-            >
-              <MoreVertical size={18} />
-            </button>
+
           </div>
         </div>
 
