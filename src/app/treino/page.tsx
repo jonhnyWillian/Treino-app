@@ -433,10 +433,10 @@ export default function TreinoPage() {
         {/* Lista de exercícios sugeridos — baseada nos grupos musculares selecionados */}
         <div className="mt-10 flex flex-wrap items-end justify-between gap-2">
           <h2 className="text-2xl font-semibold uppercase tracking-tight sm:text-3xl">Rotina sugerida</h2>
-          <div className="text-sm text-white/55">{suggested.slice(0, 6).length} Exercícios</div>
+          <div className="text-sm text-white/55">{suggested.length} Exercícios</div>
         </div>
         <div className="mt-4 space-y-3">
-          {suggested.slice(0, 6).map((name, idx) => {
+          {suggested.map((name, idx) => {
             const meta = getMeta(idx);
             return (
               <div

@@ -303,7 +303,7 @@ export default function DashboardPage() {
           <Dumbbell size={16} /> Treinar
         </Link>
         <Link href="/historico" className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white/10 py-3 text-sm font-semibold">
-          <Trophy size={16} /> Insights
+          <Trophy size={16} /> Treinos
         </Link>
         <button type="button" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500" aria-label="Nova ação">
           <Plus size={18} />

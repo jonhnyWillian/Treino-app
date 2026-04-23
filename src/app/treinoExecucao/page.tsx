@@ -18,6 +18,18 @@ type TrainingConfig = {
   grupos: string[];
 };
 
+type FinishedWorkoutSummary = {
+  nomeTreino: string;
+  dataTreino: string;
+  duracaoSegundos: number;
+  exercicios: {
+    nome: string;
+    series: number;
+    repeticoes: string;
+    carga: number | null;
+  }[];
+};
+
 export default function TreinoExecucaoPage() {
   const router = useRouter();
 
@@ -275,9 +287,22 @@ export default function TreinoExecucaoPage() {
         exerciciosRealizados: concluidos,
       });
 
+      const finishedSummary: FinishedWorkoutSummary = {
+        nomeTreino: `${config.tipo.charAt(0).toUpperCase()}${config.tipo.slice(1)} - ${config.diaSemana}`,
+        dataTreino: new Date().toISOString(),
+        duracaoSegundos: elapsedTime,
+        exercicios: concluidos.map((exercise) => ({
+          nome: exercise.nome,
+          series: exercise.series ?? 0,
+          repeticoes: String(exercise.repeticoes ?? "--"),
+          carga: exercise.carga ? Number(exercise.carga) : null,
+        })),
+      };
+
+      sessionStorage.setItem("ATIVOFinishedWorkout", JSON.stringify(finishedSummary));
+      sessionStorage.removeItem("ATIVOTrainingConfig");
       toast.success("Treino salvo com sucesso!");
-      sessionStorage.removeItem("activeTrainingConfig");
-      router.push("/dashboard");
+      router.push("/treinoFinalizado?source=execucao");
     } catch (err) {
       console.error(err);
       toast.error("Erro ao finalizar e salvar o treino.");

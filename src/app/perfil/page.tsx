@@ -81,6 +81,10 @@ export default function PerfilPage() {
   const [confirmarSenha, setConfirmarSenha] = useState("");
   // Armazena a foto de perfil como base64 ou URL; null exibe o ícone padrão
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
+  // Controla a visibilidade do modal de confirmação de desativação de conta
+  const [showDesativarModal, setShowDesativarModal] = useState(false);
+  // Impede duplo clique no botão enquanto a requisição de desativação está em andamento
+  const [desativando, setDesativando] = useState(false);
 
   /**
    * Fecha o dropdown de configurações e abre o modal de redefinição de senha.
@@ -91,6 +95,46 @@ export default function PerfilPage() {
   const handleRedefinirSenha = () => {
     setShowSettings(false);
     setShowPasswordModal(true);
+  };
+
+  /**
+   * Fecha o dropdown de configurações e abre o modal de confirmação de desativação.
+   *
+   * Substituiu o uso de `confirm()` nativo do browser, que bloqueia a thread principal
+   * e não pode ser estilizado. O modal mantém o fluxo dentro do app, preservando
+   * a experiência visual e permitindo exibir um estado de loading durante a requisição.
+   */
+  const handleDesativarConta = () => {
+    setShowSettings(false);
+    setShowDesativarModal(true);
+  };
+
+  /**
+   * Envia a requisição de desativação de conta para a API após confirmação no modal.
+   *
+   * Separado de `handleDesativarConta` para isolar a lógica assíncrona da abertura do modal.
+   * O estado `desativando` desabilita os botões durante a requisição, evitando chamadas duplicadas.
+   * Em caso de sucesso, chama `sair()` para limpar o storage e redirecionar ao login,
+   * pois a conta desativada não pode mais ser usada para autenticação.
+   * O `finally` garante que o loading e o modal sejam sempre resetados, mesmo em caso de erro.
+   */
+  const confirmarDesativarConta = async () => {
+    setDesativando(true);
+    try {
+      const res = await desativarConta();
+      if (res.ok) {
+        toast.success("Conta desativada. Saindo...");
+        sair();
+      } else {
+        toast.error("Erro ao desativar conta.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro na conexão com o servidor.");
+    } finally {
+      setDesativando(false);
+      setShowDesativarModal(false);
+    }
   };
 
   /**
@@ -123,30 +167,6 @@ export default function PerfilPage() {
       console.error(err);
       const message = err instanceof Error ? err.message : "Erro na conexão com o servidor.";
       toast.error(message);
-    }
-  };
-
-  /**
-   * Solicita confirmação do usuário e desativa a conta na API.
-   *
-   * Usa `confirm()` nativo como barreira de segurança para evitar desativações acidentais.
-   * Em caso de sucesso, chama `sair()` para limpar o storage e redirecionar ao login,
-   * pois a conta desativada não pode mais ser usada para autenticação.
-   */
-  const handleDesativarConta = async () => {
-    if (!confirm("Tem certeza que deseja desativar sua conta? Você não poderá mais fazer login.")) return;
-
-    try {
-      const res = await desativarConta();
-      if (res.ok) {
-        toast.success("Conta desativada. Saindo...");
-        sair();
-      } else {
-        toast.error("Erro ao desativar conta.");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro na conexão com o servidor.");
     }
   };
 
@@ -274,9 +294,9 @@ export default function PerfilPage() {
    *
    * Realiza duas validações antes de processar:
    * 1. Tipo MIME deve ser de imagem (evita uploads de PDFs, vídeos etc.).
-   * 2. Tamanho máximo de 2MB para não sobrecarregar a API com payloads grandes.
+   * 2. Tamanho máximo de 8MB para não sobrecarregar a API com payloads grandes.
    *
-   * Usa `FileReader.readAsDataURL` para converter a imagem em base64,
+   * Usa `compressImageToDataUrl` para redimensionar e converter a imagem em base64,
    * que é salva no estado e enviada junto com as demais alterações do perfil.
    * O campo de input é resetado após a leitura para permitir selecionar o mesmo arquivo novamente.
    */
@@ -424,7 +444,7 @@ export default function PerfilPage() {
           <div className="mt-2 text-center text-4xl font-extrabold text-green-400 sm:text-5xl">
             {/* Exibe "-" quando a idade não foi cadastrada no perfil */}
             {usuario.idade ?? "-"}
-          </div>          
+          </div>
         </div>
 
         <div className="rounded-3xl border border-white/5 bg-[#111b34] p-5 shadow-sm">
@@ -553,6 +573,54 @@ export default function PerfilPage() {
                 className="flex-1 rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white hover:bg-blue-500 transition shadow-[0_10px_20px_rgba(37,99,235,0.2)]"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação de desativação: segue o mesmo padrão visual do modal de senha,
+          com cores vermelhas para reforçar o caráter destrutivo e irreversível da ação */}
+      {showDesativarModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[32px] bg-slate-950 p-8 border border-white/10 shadow-2xl space-y-6">
+            <div className="text-center space-y-2">
+              <div className="h-16 w-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+                <NoAccounts sx={{ fontSize: 32 }} />
+              </div>
+              <h3 className="text-xl font-bold">Desativar Conta</h3>
+              <p className="text-sm text-white/50">
+                Tem certeza? Você{" "}
+                <span className="text-red-400 font-medium">não poderá mais fazer login</span>{" "}
+                após desativar sua conta.
+              </p>
+            </div>
+
+            {/* Botões do modal: cancelar fecha sem agir; confirmar aciona a API com loading */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDesativarModal(false)}
+                disabled={desativando}
+                className="flex-1 rounded-2xl bg-white/5 py-4 text-sm font-semibold hover:bg-white/10 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              {/* Botão desabilitado durante a requisição para evitar chamadas duplicadas */}
+              <button
+                onClick={confirmarDesativarConta}
+                disabled={desativando}
+                className="flex-1 rounded-2xl bg-red-600 py-4 text-sm font-bold text-white hover:bg-red-500 transition shadow-[0_10px_20px_rgba(220,38,38,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {/* Spinner inline substitui o texto durante o loading, sem deslocar o layout */}
+                {desativando ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Desativando...
+                  </>
+                ) : "Sim, desativar"}
               </button>
             </div>
           </div>

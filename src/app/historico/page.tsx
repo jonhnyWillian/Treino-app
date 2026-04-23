@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { getPerfil, listarHistorico } from "@/services/api";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Calendar,
   ChevronDown,
-  ChevronUp,
   Dumbbell,
   Hand,
   History,
@@ -34,12 +34,11 @@ interface WorkoutHistory {
 }
 
 export default function HistoricoPage() {
+  const router = useRouter();
   const [historico, setHistorico] = useState<WorkoutHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [userGender, setUserGender] = useState<string | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  // Armazena o id do card expandido; null significa que nenhum está aberto
-  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   /**
    * Carrega o histórico de treinos ao montar o componente.
@@ -89,17 +88,6 @@ export default function HistoricoPage() {
   };
 
   /**
-   * Alterna a expansão do card de detalhes de um treino.
-   *
-   * Se o card clicado já está aberto (expandedId === id), fecha-o definindo null.
-   * Caso contrário, abre o novo card — fechando automaticamente qualquer outro que estivesse aberto.
-   * Isso implementa o comportamento de "accordion" (apenas um aberto por vez).
-   */
-  const toggleExpand = (id: number) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  /**
    * Formata uma string de data ISO para exibição compacta em pt-BR.
    *
    * Exibe apenas dia e mês abreviado, ideal para listagens onde o espaço é limitado.
@@ -128,6 +116,49 @@ export default function HistoricoPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const handleOpenFinishedWorkout = (item: WorkoutHistory) => {
+    const groupedSeries = (item.series ?? []).reduce<
+      Record<string, NonNullable<WorkoutHistory["series"]>>
+    >((acc, serie) => {
+      const key = serie.exercicioNome || "Exercício";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(serie);
+      return acc;
+    }, {});
+
+    const fallbackExercises =
+      item.ExerciciosRealizados?.trim()
+        ? item.ExerciciosRealizados.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+
+    const exercisesFromSeries = Object.entries(groupedSeries).map(([exerciseName, exerciseSeries]) => ({
+      nome: exerciseName,
+      series: exerciseSeries.length,
+      repeticoes: String(exerciseSeries[0]?.repeticoesFeitas ?? "--"),
+      carga: Math.max(...exerciseSeries.map((s) => Number(s.carga) || 0)) || null,
+    }));
+
+    const exercises =
+      exercisesFromSeries.length > 0
+        ? exercisesFromSeries
+        : fallbackExercises.map((exerciseName) => ({
+          nome: exerciseName,
+          series: 0,
+          repeticoes: "--",
+          carga: null,
+        }));
+
+    const summary = {
+      nomeTreino: item.NomeTreino,
+      dataTreino: item.dataTreino,
+      duracaoSegundos: item.duracaoSegundos ?? 0,
+      exercicios: exercises,
+    };
+
+    sessionStorage.setItem("ATIVOFinishedWorkout", JSON.stringify(summary));
+    router.push("/treinoFinalizado?source=historico");
   };
 
   // Array de ícones rotacionados por índice para diferenciar visualmente cada card de treino.
@@ -228,8 +259,6 @@ export default function HistoricoPage() {
       ) : (
         <div className="mt-5 space-y-4">
           {historico.map((item, index) => {
-            const isExpanded = expandedId === item.id;
-
             /**
              * Converte a string de exercícios (separada por vírgula) em um array limpo.
              *
@@ -272,12 +301,11 @@ export default function HistoricoPage() {
             return (
               <div
                 key={item.id}
-                className={`overflow-hidden rounded-[24px] bg-[#101b30] ring-1 ring-white/10 transition-all duration-300 ${isExpanded ? "ring-emerald-400/35" : "hover:bg-[#15233f]"
-                  }`}
+                className="overflow-hidden rounded-[24px] bg-[#101b30] ring-1 ring-white/10 transition-all duration-300 hover:bg-[#15233f]"
               >
                 {/* Cabeçalho clicável do card: aciona o toggle de expansão ao clicar */}
                 <button
-                  onClick={() => toggleExpand(item.id)}
+                  onClick={() => handleOpenFinishedWorkout(item)}
                   className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left"
                 >
                   <div className="flex min-w-0 items-center gap-3">
@@ -303,77 +331,9 @@ export default function HistoricoPage() {
                         {qtdExercicios}
                       </div>
                     </div>
-                    {/* Ícone de seta indica visualmente o estado aberto ou fechado do card */}
-                    {isExpanded ? (
-                      <ChevronUp size={17} className="text-white/55" />
-                    ) : (
-                      <ChevronDown size={17} className="text-white/55" />
-                    )}
+                    <ChevronDown size={17} className="text-white/55" />
                   </div>
                 </button>
-
-                {/*
-                  Painel de detalhes do treino com animação de expansão via max-height e opacity.
-                  Usa overflow-x-auto para permitir rolagem horizontal em telas pequenas
-                  caso a tabela de séries não caiba na largura disponível.
-                */}
-                <div
-                  className={`overflow-x-auto overflow-y-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[560px] opacity-100 px-4 pb-4" : "max-h-0 opacity-0"
-                    }`}
-                >
-                  <div className="rounded-2xl bg-[#0d172a] p-3 ring-1 ring-white/5">
-                    {/* Cabeçalho da tabela de séries */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 pb-2 text-[9px] uppercase tracking-[0.15em] text-white/35">
-                      <div>Exercicio</div>
-                      <div>Series</div>
-                      <div>Reps</div>
-                      <div>Peso</div>
-                    </div>
-                    <div className="space-y-2">
-                      {Object.keys(groupedSeries).length > 0
-                        ? Object.entries(groupedSeries).map(([exerciseName, exerciseSeries]) => {
-                          const totalSeries = exerciseSeries.length;
-                          // Conta apenas as séries marcadas como concluídas para exibir progresso real
-                          const doneSeries = exerciseSeries.filter((s) => s.concluida).length;
-                          // Usa as repetições da primeira série como referência; assume séries homogêneas
-                          const reps = exerciseSeries[0]?.repeticoesFeitas ?? 0;
-                          // Exibe a maior carga utilizada no exercício, destacando o melhor desempenho
-                          const bestCarga = Math.max(...exerciseSeries.map((s) => Number(s.carga) || 0));
-
-                          return (
-                            <div
-                              key={exerciseName}
-                              className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-xl bg-white/5 p-2.5"
-                            >
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-white/90">{exerciseName}</div>
-                                <div className="text-[9px] uppercase tracking-[0.12em] text-white/35">
-                                  foco: executado
-                                </div>
-                              </div>
-                              {/* Formato "feitas/total" mostra ao usuário quantas séries foram concluídas */}
-                              <div className="text-sm font-semibold text-white/75">{doneSeries}/{totalSeries}</div>
-                              <div className="text-sm font-semibold text-white/75">{reps || "--"}</div>
-                              {/* Exibe "--" quando nenhuma carga foi registrada para o exercício */}
-                              <div className="text-sm font-semibold text-emerald-300">
-                                {bestCarga > 0 ? `${bestCarga}kg` : "--"}
-                              </div>
-                            </div>
-                          );
-                        })
-                        : // Fallback: renderiza lista simples de nomes quando não há séries detalhadas
-                        exercicios.map((ex, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between rounded-xl bg-white/5 p-2.5"
-                          >
-                            <span className="truncate text-sm text-white/80">{ex}</span>
-                            <span className="text-xs text-white/40">--</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
               </div>
             );
           })}
