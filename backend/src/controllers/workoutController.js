@@ -535,3 +535,83 @@ export async function resumoDashboard(req, res) {
     res.status(500).json({ message: "Erro ao buscar resumo do dashboard" });
   }
 }
+
+/**
+ * Lista os recordes pessoais (PRs) para cada exercício realizado pelo usuário.
+ * Retorna a maior carga registrada, número de repetições e a data da conquista,
+ * além de uma lista com as marcas anteriores para mostrar a evolução.
+ */
+export async function listarRecordesPessoais(req, res) {
+  try {
+    const usuarioId = req.usuario.id;
+
+    // Busca todas as séries de todos os treinos do usuário que possuem carga registrada
+    const rows = await db("HistoricoSeries as hs")
+      .join("HistoricoTreinos as h", "hs.historicoTreinoId", "h.id")
+      .join("Exercicios as e", "hs.exercicioId", "e.id")
+      .where("h.usuarioId", usuarioId)
+      .whereNotNull("hs.carga")
+      .select(
+        "e.nome as exercicio",
+        "hs.carga",
+        "hs.repeticoesFeitas",
+        "h.dataTreino"
+      )
+      .orderBy("h.dataTreino", "desc"); // Ordena do mais recente para o mais antigo
+
+    // Agrupa por exercício e coleta todas as marcas únicas (carga + reps)
+    const exerciciosMap = rows.reduce((acc, curr) => {
+      const nome = curr.exercicio;
+      const carga = Number(curr.carga);
+      const repeticoes = curr.repeticoesFeitas;
+      const data = curr.dataTreino;
+
+      if (!acc[nome]) {
+        acc[nome] = {
+          exercicio: nome,
+          carga: 0,
+          repeticoes: 0,
+          data: null,
+          isNovo: false,
+          historico: []
+        };
+      }
+
+      // Adiciona ao histórico se for uma carga diferente ou se for a primeira vez
+      // Limitamos a exibir as últimas 5 marcas distintas para não poluir
+      const jaExisteNoHistorico = acc[nome].historico.some(h => h.carga === carga);
+      if (!jaExisteNoHistorico && acc[nome].historico.length < 6) {
+        acc[nome].historico.push({
+          carga,
+          repeticoes,
+          data
+        });
+      }
+
+      // O recorde atual é a maior carga encontrada
+      if (carga > acc[nome].carga) {
+        acc[nome].carga = carga;
+        acc[nome].repeticoes = repeticoes;
+        acc[nome].data = data;
+        acc[nome].isNovo = (new Date() - new Date(data)) < 7 * 24 * 60 * 60 * 1000;
+      }
+
+      return acc;
+    }, {});
+
+    // Para cada exercício, removemos a marca que é o recorde atual do histórico para listar apenas as "anteriores"
+    const recordes = Object.values(exerciciosMap).map(ex => {
+      return {
+        ...ex,
+        historico: ex.historico
+          .filter(h => h.carga < ex.carga) // Apenas marcas menores que o recorde
+          .sort((a, b) => b.carga - a.carga) // Ordena por carga desc
+      };
+    }).sort((a, b) => b.carga - a.carga);
+
+    res.json(recordes);
+  } catch (error) {
+    console.error("❌ ERRO AO LISTAR RECORDES:", error);
+    res.status(500).json({ message: "Erro ao listar recordes pessoais" });
+  }
+}

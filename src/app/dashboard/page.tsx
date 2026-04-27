@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Dumbbell, Flame, Plus, Timer, Trophy } from "lucide-react";
+import { ChevronRight, Dumbbell, Flame, LayoutDashboard, Plus, Timer, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getDashboardResumo, getPerfil, type DashboardResumoResponse } from "@/services/api";
 
@@ -273,8 +273,11 @@ export default function DashboardPage() {
 
       {/* Cards de destaque: recorde pessoal de carga e média de duração por sessão */}
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl bg-[#0f1a31] p-4 ring-1 ring-white/10">
-          <div className="text-[10px] uppercase tracking-[0.15em] text-white/45">Recorde pessoal</div>
+        <Link href="/recordes" className="block rounded-2xl bg-[#0f1a31] p-4 ring-1 ring-white/10 active:scale-[0.98] transition-transform">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] uppercase tracking-[0.15em] text-white/45">Recorde pessoal</div>
+            <ChevronRight size={14} className="text-white/20" />
+          </div>
           <div className="mt-2 text-2xl font-bold text-white">
             {dashboardData?.destaques.recordeCargaKg ?? 0}
             <span className="ml-1 text-sm text-white/55">kg</span>
@@ -282,7 +285,7 @@ export default function DashboardPage() {
           <div className="mt-1 line-clamp-2 text-xs text-blue-300">
             {dashboardData?.destaques.recordeExercicio ?? "--"}
           </div>
-        </div>
+        </Link>
         <div className="rounded-2xl bg-[#0f1a31] p-4 ring-1 ring-white/10">
           <div className="text-[10px] uppercase tracking-[0.15em] text-white/45">Média treino</div>
           <div className="mt-2 text-2xl font-bold text-white">

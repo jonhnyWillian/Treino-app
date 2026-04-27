@@ -67,6 +67,19 @@ export interface DashboardResumoResponse {
   };
 }
 
+export interface RecordePessoal {
+  exercicio: string;
+  carga: number;
+  repeticoes: number;
+  data: string;
+  isNovo: boolean;
+  historico: {
+    carga: number;
+    repeticoes: number;
+    data: string;
+  }[];
+}
+
 // Helper para fazer requisições autenticadas de forma segura
 async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
   // Garantir que localStorage só seja acessado no cliente (browser)
@@ -258,6 +271,17 @@ export async function getDashboardResumo(): Promise<DashboardResumoResponse | nu
   } catch (error) {
     console.error("Erro na função getDashboardResumo:", error);
     return null;
+  }
+}
+
+export async function listarRecordesPessoais(): Promise<RecordePessoal[]> {
+  try {
+    const response = await authenticatedFetch("/workouts/recordes");
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Erro na função listarRecordesPessoais:", error);
+    return [];
   }
 }
 

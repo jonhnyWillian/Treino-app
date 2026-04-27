@@ -11,13 +11,22 @@
  */
 
 type DrawStreakParams = {
-  streakAtual: number;
+  sequenciaAtual: number;
   melhorStreak: number;
   totalDiasTreinados: number;
   dataTreino: string; // string ISO
 };
 
-// Paleta de cores fixas — identidade visual Kinetic
+type DrawWorkoutParams = {
+  nomeTreino: string;
+  dataTreino: string;
+  duracao: string;
+  totalSeries: number;
+  volume: string;
+  exercicios: { nome: string; info: string; isPR?: boolean }[];
+};
+
+// Paleta de cores fixas — identidade visual Treinos
 const VERDE = "#22c55e";
 const VERDE_DIM = "rgba(34,197,94,0.15)";
 const VERDE_BORDER = "rgba(34,197,94,0.35)";
@@ -38,6 +47,7 @@ const DIAS_SEMANA = ["S", "T", "Q", "Q", "S", "S", "D"];
  * Formata data ISO para DD/MM/AAAA
  */
 function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
   return new Date(dateStr).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -71,7 +81,7 @@ function roundRect(
 
 export function drawStreakCard(
   canvas: HTMLCanvasElement,
-  { streakAtual, melhorStreak, totalDiasTreinados, dataTreino }: DrawStreakParams
+  { sequenciaAtual, melhorStreak, totalDiasTreinados, dataTreino }: DrawStreakParams
 ) {
   const W = 390;  // largura base (equivale a um mobile 390px)
   const H = 420;  // altura do card
@@ -112,7 +122,7 @@ export function drawStreakCard(
   ctx.fillText("🔥 ACTIVE STREAK", PAD, y + 12);
 
   // Badge semana
-  const semana = Math.floor(streakAtual / 7) + 1;
+  const semana = Math.floor(sequenciaAtual / 7) + 1;
   const badgeText = `SEMANA ${semana}`;
   ctx.font = "bold 9px system-ui";
   const badgeW = ctx.measureText(badgeText).width + 20;
@@ -135,11 +145,11 @@ export function drawStreakCard(
   ctx.font = `900 88px system-ui`;
   ctx.fillStyle = BRANCO;
   ctx.letterSpacing = "-4px";
-  ctx.fillText(String(streakAtual), PAD, y + 80);
+  ctx.fillText(String(sequenciaAtual), PAD, y + 80);
   ctx.letterSpacing = "0px";
 
   // "DIAS" e "SEGUIDOS NO FOCO" ao lado do número
-  const numW = ctx.measureText(String(streakAtual)).width + 10;
+  const numW = ctx.measureText(String(sequenciaAtual)).width + 10;
   ctx.font = "700 22px system-ui";
   ctx.fillStyle = CINZA_FORTE;
   ctx.fillText("DIAS", PAD + numW + 8, y + 58);
@@ -155,7 +165,7 @@ export function drawStreakCard(
   ctx.fillStyle = CINZA_LABEL;
   ctx.fillText("PRÓXIMA CONQUISTA", PAD, y);
 
-  const diasNoCiclo = streakAtual % 7 === 0 && streakAtual > 0 ? 7 : streakAtual % 7;
+  const diasNoCiclo = sequenciaAtual % 7 === 0 && sequenciaAtual > 0 ? 7 : sequenciaAtual % 7;
   ctx.fillStyle = VERDE;
   ctx.textAlign = "right";
   ctx.fillText(`${diasNoCiclo} / 7 dias`, W - PAD, y);
@@ -213,7 +223,7 @@ export function drawStreakCard(
   const statW = barW / 3;
   const stats = [
     { label: "MELHOR", value: melhorStreak, destaque: false },
-    { label: "ATUAL",  value: streakAtual,  destaque: true  },
+    { label: "ATUAL",  value: sequenciaAtual,  destaque: true  },
     { label: "TOTAL",  value: totalDiasTreinados, destaque: false },
   ];
 
@@ -240,22 +250,156 @@ export function drawStreakCard(
 
   y += 52;
 
-  // ── Rodapé: KINETIC + data ──
+  // ── Rodapé: Treinos + data ──
   ctx.font = "900 italic 10px system-ui";
   ctx.fillStyle = VERDE_LABEL;
-  ctx.fillText("KINETIC", PAD, y);
+  ctx.fillText("Treinos", PAD, y);
 
   ctx.font = "400 9px system-ui";
   ctx.fillStyle = CINZA_FRACO;
   ctx.textAlign = "right";
   ctx.fillText(formatDate(dataTreino), W - PAD, y);
-  ctx.textAlign = "left";
+}
 
-  // Linha verde na base
-  const gradBot = ctx.createLinearGradient(0, 0, W, 0);
-  gradBot.addColorStop(0, "transparent");
-  gradBot.addColorStop(0.5, "rgba(34,197,94,0.4)");
-  gradBot.addColorStop(1, "transparent");
-  ctx.fillStyle = gradBot;
-  ctx.fillRect(0, H - 1, W, 1);
+/**
+ * drawWorkoutCard
+ * Desenha o resumo completo do treino.
+ */
+export function drawWorkoutCard(
+  canvas: HTMLCanvasElement,
+  { nomeTreino, dataTreino, duracao, totalSeries, volume, exercicios }: DrawWorkoutParams
+) {
+  const W = 390;
+  const H = 520; // Um pouco mais alto para caber a lista de exercícios
+  const SCALE = 2;
+
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(SCALE, SCALE);
+
+  const PAD = 24;
+
+  // Fundo
+  roundRect(ctx, 0, 0, W, H, 20);
+  ctx.fillStyle = BG_CARD;
+  ctx.fill();
+
+  // Borda
+  roundRect(ctx, 0, 0, W, H, 20);
+  ctx.strokeStyle = "rgba(34,197,94,0.2)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Linha topo
+  const gradTop = ctx.createLinearGradient(0, 0, W, 0);
+  gradTop.addColorStop(0, "transparent");
+  gradTop.addColorStop(0.5, "rgba(34,197,94,0.5)");
+  gradTop.addColorStop(1, "transparent");
+  ctx.fillStyle = gradTop;
+  ctx.fillRect(0, 0, W, 1);
+
+  let y = PAD;
+
+  // Header
+  ctx.fillStyle = VERDE;
+  ctx.font = "bold 11px system-ui";
+  ctx.fillText("🏆 TREINO FINALIZADO", PAD, y + 12);
+
+  y += 35;
+
+  // Nome do Treino
+  ctx.font = "900 32px system-ui";
+  ctx.fillStyle = BRANCO;
+  ctx.fillText(nomeTreino, PAD, y + 30);
+
+  y += 50;
+
+  // Stats Grid
+  const stats = [
+    { label: "DURAÇÃO", value: duracao },
+    { label: "SÉRIES",   value: String(totalSeries) },
+    { label: "VOLUME",   value: volume },
+  ];
+
+  const colW = (W - PAD * 2) / 3;
+  stats.forEach((stat, i) => {
+    const sx = PAD + i * colW;
+    ctx.font = "900 18px system-ui";
+    ctx.fillStyle = BRANCO;
+    ctx.textAlign = "left";
+    ctx.fillText(stat.value, sx, y + 20);
+
+    ctx.font = "700 8px system-ui";
+    ctx.fillStyle = CINZA_LABEL;
+    ctx.fillText(stat.label, sx, y + 34);
+  });
+
+  y += 60;
+
+  // Separador
+  ctx.fillStyle = SEPARADOR;
+  ctx.fillRect(PAD, y, W - PAD * 2, 1);
+
+  y += 25;
+
+  // Exercícios
+  ctx.font = "700 9px system-ui";
+  ctx.fillStyle = CINZA_LABEL;
+  ctx.fillText("RESUMO DA SESSÃO", PAD, y);
+
+  y += 20;
+
+  // Lista os primeiros 6 exercícios
+  exercicios.slice(0, 6).forEach((ex, i) => {
+    const ey = y + i * 45;
+    
+    // Fundo do item
+    roundRect(ctx, PAD, ey, W - PAD * 2, 38, 12);
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.fill();
+
+    // Nome
+    ctx.font = "bold 13px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.textAlign = "left";
+    ctx.fillText(ex.nome, PAD + 12, ey + 16);
+
+    // PR Badge if exists
+    if (ex.isPR) {
+      ctx.font = "bold 8px system-ui";
+      const prW = ctx.measureText("PR").width + 8;
+      const nameW = ctx.measureText(ex.nome).width;
+      roundRect(ctx, PAD + 12 + nameW + 8, ey + 6, prW, 12, 4);
+      ctx.fillStyle = "rgba(251, 191, 36, 0.15)";
+      ctx.fill();
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText("PR", PAD + 12 + nameW + 12, ey + 15);
+    }
+
+    // Info
+    ctx.font = "500 11px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillText(ex.info, PAD + 12, ey + 30);
+  });
+
+  if (exercicios.length > 6) {
+    ctx.font = "italic 11px system-ui";
+    ctx.fillStyle = CINZA_FRACO;
+    ctx.textAlign = "center";
+    ctx.fillText(`+ ${exercicios.length - 6} exercícios não listados`, W / 2, y + 6 * 45 + 5);
+  }
+
+  // Rodapé
+  y = H - PAD;
+  ctx.font = "900 italic 10px system-ui";
+  ctx.fillStyle = VERDE_LABEL;
+  ctx.textAlign = "left";
+  ctx.fillText("Treinos", PAD, y);
+
+  ctx.font = "400 9px system-ui";
+  ctx.fillStyle = CINZA_FRACO;
+  ctx.textAlign = "right";
+  ctx.fillText(formatDate(dataTreino), W - PAD, y);
 }

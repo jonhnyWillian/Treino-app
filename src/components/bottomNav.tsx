@@ -2,7 +2,7 @@
 
 import Link from "next/link"; // Componente para navegação entre páginas
 import { usePathname } from "next/navigation"; // Hook para obter a rota atual
-import { FitnessCenter, Home, Person, History } from "@mui/icons-material"; // Ícones do Material UI
+import { FitnessCenter,EmojiEvents , Home, Person, History } from "@mui/icons-material"; // Ícones do Material UI
 
 export default function BottomNav() {
   const pathname = usePathname(); // Guarda o caminho atual da URL
@@ -10,6 +10,7 @@ export default function BottomNav() {
   // Lista de itens da navegação inferior
   const navItems = [
     { href: "/treino", icon: <FitnessCenter fontSize="small" />, label: "Treino" },
+    { href: "/recordes", icon: <EmojiEvents  fontSize="small" />, label: "Recordes" },
     { href: "/dashboard", icon: <Home fontSize="small" />, label: "Home" },
     { href: "/historico", icon: <History fontSize="small" />, label: "Histórico" },
     { href: "/perfil", icon: <Person fontSize="small" />, label: "Perfil" },

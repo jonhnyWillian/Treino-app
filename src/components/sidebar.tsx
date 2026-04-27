@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {  X, LogOut, 
   Dumbbell, History as HistoryIcon, 
-  ShieldCheck, HelpCircle, LayoutDashboard, User
+  ShieldCheck, HelpCircle, LayoutDashboard, User, Trophy
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -103,6 +103,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               label="Histórico" 
               href="/historico" 
               active={pathname === "/historico"}
+              onClick={onClose} 
+            />
+            <SidebarLink 
+              icon={<Trophy size={20} />} 
+              label="Recordes Pessoais" 
+              href="/recordes" 
+              active={pathname === "/recordes"}
               onClick={onClose} 
             />
             <SidebarLink 

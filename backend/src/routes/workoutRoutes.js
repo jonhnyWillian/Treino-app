@@ -4,7 +4,8 @@ import {
   listarTreinos, 
   salvarHistorico, 
   listarHistorico,
-  resumoDashboard
+  resumoDashboard,
+  listarRecordesPessoais
 } from "../controllers/workoutController.js";
 import { verificarToken } from "../middlewares/authMiddleware.js";
 
@@ -21,5 +22,6 @@ router.get("/listar", listarTreinos);
 router.post("/historico/salvar", salvarHistorico);
 router.get("/historico/listar", listarHistorico);
 router.get("/dashboard/resumo", resumoDashboard);
+router.get("/recordes", listarRecordesPessoais);
 
 export default router;
