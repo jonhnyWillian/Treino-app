@@ -4,9 +4,10 @@ import Image from "next/image";
 import { treinos, TipoTreino } from "@/data/treinos";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Play, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Play, Menu } from "lucide-react";
 import toast from "react-hot-toast";
 import { getPerfil } from "@/services/api";
+import { useNav } from "@/components/navWrapper";
 
 /**
  * Mapa de imagens por exercício.
@@ -17,7 +18,7 @@ const exerciseImageMap: Record<string, string> = {
   "agachamento livre": "/imagens/exercicios/exerciciosInferior/agachamentoLivre.png",
   "hack": "/imagens/exercicios/exerciciosInferior/hack.png",
   "leg press": "/imagens/exercicios/exerciciosInferior/legpress.png",
-  "cadeira extensora": "/imagens/exercicios/exerciciosInferior/cadeiraExtensora.png",
+  "cadeira extensora": "/imagens/exercicios/exerciciosInferior/extensora.png",
   "afundo": "/imagens/exercicios/exerciciosInferior/afundo.png",
   "mesa flexora": "/imagens/exercicios/exerciciosInferior/mesaflexora.png",
   "stiff": "/imagens/exercicios/exerciciosInferior/stiff.png",
@@ -63,6 +64,7 @@ const normalizeExerciseName = (name: string) =>
 
 export default function TreinoPage() {
   const router = useRouter();
+  const { openSidebar } = useNav();
 
   // Estado do gênero do usuário — usado para exibir a foto de perfil correta (masculino/feminino)
   const [userGender, setUserGender] = useState<string | null>(null);
@@ -97,14 +99,14 @@ export default function TreinoPage() {
    * Retorna o caminho da imagem de perfil com base no gênero do usuário.
    * Padrão: imagem masculina caso o gênero não esteja definido.
    */
-  const getProfileImage = () => {
-    if (profilePhoto) return profilePhoto;
-    if (userGender === "Feminino") {
-      return "/imagens/perfil/feminino.png";
-    } else {
-      return "/imagens/perfil/masculino.png";
-    }
-  };
+  //const getProfileImage = () => {
+  //  if (profilePhoto) return profilePhoto;
+ //   if (userGender === "Feminino") {
+ //     return "/imagens/perfil/feminino.png";
+ //   } else {
+ //     return "/imagens/perfil/masculino.png";
+  //  }
+ // };
 
   /**
    * Gera os próximos 5 dias a partir de hoje para o seletor de dias.
@@ -275,23 +277,21 @@ export default function TreinoPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
       {/* CRIAR/SELECIONAR TREINO */}
       <>
-        {/* Barra Superior — exibe foto de perfil e título da tela */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-white/20">
-              <Image
-                src={profilePhoto || getProfileImage()}
-                alt="Foto de perfil"
-                fill
-                sizes="40px"
-                className="object-cover opacity-90"
-                priority
-              />
-            </div>
-            <div className="truncate text-2xl font-bold italic leading-none text-emerald-400 sm:text-[34px]">
+        {/* Barra Superior — exibe botão de menu e título da tela */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={openSidebar}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
+            aria-label="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="text-right">
+            <div className="text-2xl font-bold italic leading-none text-emerald-400 sm:text-[34px]">
               TREINO
             </div>
           </div>

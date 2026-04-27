@@ -58,7 +58,7 @@ html, body {
 /* Container principal para manter o aspecto de App no Desktop */
 .app-wrapper {
   width: 100%;
-  max-width: 460px;
+  max-width: 480px; /* Aumentado levemente para melhor proporção */
   min-height: 100dvh;
   margin-left: auto;
   margin-right: auto;
@@ -67,6 +67,9 @@ html, body {
   background-image: linear-gradient(to bottom, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  position: relative;
+  overflow-x: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.5);
 }
 
 .theme-surface {

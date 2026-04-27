@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Dumbbell, Flame, LayoutDashboard, Plus, Timer, Trophy } from "lucide-react";
+import { ChevronRight, Dumbbell, Flame, LayoutDashboard, Plus, Timer, Trophy, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getDashboardResumo, getPerfil, type DashboardResumoResponse } from "@/services/api";
+import { useNav } from "@/components/navWrapper";
 
 export default function DashboardPage() {
+  const { openSidebar } = useNav();
   const [userGender, setUserGender] = useState<string | null>(null);
   const [userName, setUserName] = useState("Atleta");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
@@ -150,21 +152,18 @@ export default function DashboardPage() {
   const maxWeek = Math.max(...weekData.map((d) => d.treinos), 1);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-32 pt-4 sm:px-5 sm:pt-5">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-5">
       <div className="flex items-center justify-between">
-        <div className="text-blue-400 text-lg font-semibold uppercase tracking-wider">RESUMOS DOS TREINOS</div>
-        <div className="flex items-center gap-3">
-          {/* Exibe a foto personalizada do usuário se disponível; caso contrário, usa o avatar padrão por gênero */}
-          <div className="relative h-8 w-8 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
-            <Image
-              src={profilePhoto || getProfileImage()}
-              alt="Foto de perfil"
-              fill
-              sizes="32px"
-              className="object-cover"
-              priority
-            />
-          </div>
+        <button
+          onClick={openSidebar}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
+          aria-label="Abrir menu"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div className="text-right">
+          <div className="text-blue-400 text-lg font-semibold uppercase tracking-wider">RESUMOS DOS TREINOS</div>
         </div>
       </div>
 

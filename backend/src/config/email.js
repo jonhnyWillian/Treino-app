@@ -46,7 +46,7 @@ export async function enviarEmailRecuperacao(email, link) {
           <!-- Rodapé -->
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
           <p style="color: #999; font-size: 10px; text-align: center;">
-            Training Workout App © 2026
+            APlicativo de Treino © 2026
           </p>
         </div>
       `,

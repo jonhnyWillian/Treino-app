@@ -170,8 +170,8 @@ export default function TreinoExecucaoPage() {
     );
   }, [config]);
 
-  // Limita a lista a 7 exercícios e conta quantos foram concluídos
-  const activeTrainingExercises = suggested.slice(0, 7);
+  // Lista todos os exercícios sugeridos (sem limite de 7) e conta quantos foram concluídos
+  const activeTrainingExercises = suggested;
   const completedCount = activeTrainingExercises.filter((name) => completedExercises.includes(name)).length;
 
   /**
@@ -206,13 +206,27 @@ export default function TreinoExecucaoPage() {
     field: "peso" | "reps" | "series",
     value: string,
   ) => {
+    // Validação para aceitar apenas números (e ponto/vírgula para peso)
+    let sanitizedValue = value;
+    if (field === "peso") {
+      // Permite números, um único ponto ou vírgula
+      sanitizedValue = value.replace(/[^0-9.,]/g, "");
+      const parts = sanitizedValue.split(/[.,]/);
+      if (parts.length > 2) {
+        sanitizedValue = parts[0] + "." + parts.slice(1).join("");
+      }
+    } else {
+      // Apenas números para reps e series
+      sanitizedValue = value.replace(/[^0-9]/g, "");
+    }
+
     setExerciseData((prev) => ({
       ...prev,
       [exerciseName]: {
         peso: prev[exerciseName]?.peso ?? "",
         reps: prev[exerciseName]?.reps ?? "",
         series: prev[exerciseName]?.series ?? "",
-        [field]: value,
+        [field]: sanitizedValue,
       },
     }));
   };
@@ -325,32 +339,37 @@ export default function TreinoExecucaoPage() {
   // Exibe estado de carregamento enquanto a configuração do treino não foi lida
   if (!config) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+      <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
         <div className="text-center text-white/70">Carregando treino...</div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
       <div className="flex flex-col">
 
         {/* Barra superior — botão de fechar, título e foto de perfil */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.push("/treino")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-emerald-400 ring-1 ring-white/10"
-            aria-label="Fechar treino ativo"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center pl-16">
+            <button
+              onClick={() => router.push("/treino")}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-emerald-400 ring-1 ring-white/10"
+              aria-label="Fechar treino ativo"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-          <div className="text-lg font-semibold uppercase tracking-wide text-emerald-400">
-            TREINO DIÁRIO
+          <div className="text-right">
+            <div className="text-lg font-semibold uppercase tracking-wide text-emerald-400">
+              TREINO DIÁRIO
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative h-9 w-9 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
+            {/* Foto de perfil comentada conforme solicitado */}
+            {/* <div className="relative h-9 w-9 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
               <Image
                 src={profilePhoto || getProfileImage()}
                 alt="Foto de perfil"
@@ -359,7 +378,7 @@ export default function TreinoExecucaoPage() {
                 className="object-cover opacity-90"
                 priority
               />
-            </div>
+            </div> */}
 
           </div>
         </div>
@@ -472,6 +491,7 @@ export default function TreinoExecucaoPage() {
                     Peso (kg)
                     <input
                       type="text"
+                      inputMode="decimal"
                       value={values.peso}
                       onChange={(e) => handleExerciseFieldChange(name, "peso", e.target.value)}
                       disabled={isCompleted}
@@ -483,6 +503,7 @@ export default function TreinoExecucaoPage() {
                     Repetições
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={values.reps}
                       onChange={(e) => handleExerciseFieldChange(name, "reps", e.target.value)}
                       disabled={isCompleted}
@@ -494,6 +515,7 @@ export default function TreinoExecucaoPage() {
                     Séries
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={values.series}
                       onChange={(e) => handleExerciseFieldChange(name, "series", e.target.value)}
                       disabled={isCompleted}

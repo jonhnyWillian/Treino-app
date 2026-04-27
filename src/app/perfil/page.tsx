@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { Menu as MenuIcon } from "lucide-react";
+import { useNav } from "@/components/navWrapper";
 import {
   ArrowBackIosNew,
   Edit,
@@ -69,6 +71,7 @@ async function compressImageToDataUrl(file: File): Promise<string> {
 
 export default function PerfilPage() {
   const router = useRouter();
+  const { openSidebar } = useNav();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [peso, setPeso] = useState<string>("");
   const [altura, setAltura] = useState<string>("");
@@ -343,55 +346,29 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
-      {/* Header: botão voltar à esquerda, título centralizado e menu de configurações à direita */}
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+      {/* Header: botão menu à esquerda, título e botão voltar à direita */}
       <div className="mb-8 flex items-center justify-between">
-        <div className="h-10 w-10" />
-
         <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded-full p-2 text-white/80 hover:text-white hover:bg-white/5 transition"
-          aria-label="Voltar"
+          onClick={openSidebar}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
+          aria-label="Abrir menu"
         >
-          <ArrowBackIosNew fontSize="small" />
+          <MenuIcon size={20} />
         </button>
 
-        <div className="text-sm font-semibold tracking-wide text-green-400 sm:text-base">
-          Perfil
-        </div>
-
-        {/* Botão de configurações com dropdown de ações sensíveis (senha e desativação de conta) */}
-        <div className="relative">
+        <div className="text-right flex items-center gap-4">
+          <div className="text-sm font-semibold tracking-wide text-green-400 sm:text-base">
+            Perfil
+          </div>
           <button
             type="button"
-            onClick={() => setShowSettings(!showSettings)}
-            className={`rounded-full p-2 transition ${showSettings ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
-              }`}
-            aria-label="Configurações"
+            onClick={() => router.back()}
+            className="rounded-full p-2 text-white/80 hover:text-white hover:bg-white/5 transition ring-1 ring-white/10"
+            aria-label="Voltar"
           >
-            <Settings fontSize="small" />
+            <ArrowBackIosNew fontSize="small" />
           </button>
-
-          {showSettings && (
-            <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#0f1830] shadow-2xl">
-              <button
-                onClick={handleRedefinirSenha}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 transition"
-              >
-                <LockReset fontSize="small" />
-                Redefinir Senha
-              </button>
-              {/* Ação destrutiva: cor vermelha para destacar o risco da ação */}
-              <button
-                onClick={handleDesativarConta}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-400/5 transition"
-              >
-                <NoAccounts fontSize="small" />
-                Desativar Conta
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -518,6 +495,23 @@ export default function PerfilPage() {
           <Logout fontSize="small" className="text-orange-400" />
           LOGOUT
         </button>
+
+        <div className="pt-4 space-y-3">
+          <button
+            onClick={handleRedefinirSenha}
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 text-sm text-white/80 hover:bg-white/10 transition ring-1 ring-white/10"
+          >
+            <LockReset fontSize="small" />
+            Redefinir Senha
+          </button>
+          <button
+            onClick={() => setShowDesativarModal(true)}
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-red-500/10 text-sm text-red-400 hover:bg-red-500/20 transition ring-1 ring-red-500/20"
+          >
+            <NoAccounts fontSize="small" />
+            Desativar Conta
+          </button>
+        </div>
       </div>
 
       {/* Modal de redefinição de senha: sobrepõe toda a tela com backdrop blur */}

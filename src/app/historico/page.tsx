@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getPerfil, listarHistorico } from "@/services/api";
 import { useRouter } from "next/navigation";
+import { useNav } from "@/components/navWrapper";
 import {
   Activity,
   Calendar,
@@ -35,6 +36,7 @@ interface WorkoutHistory {
 
 export default function HistoricoPage() {
   const router = useRouter();
+  const { openSidebar } = useNav();
   const [historico, setHistorico] = useState<WorkoutHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [userGender, setUserGender] = useState<string | null>(null);
@@ -193,17 +195,20 @@ export default function HistoricoPage() {
   const totalMinutes = Math.floor((totalDuration % 3600) / 60);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
       <div className="flex items-center justify-between">
-        <div className="flex min-w-0 items-center gap-2 text-emerald-400">
-          <Menu size={16} />
-          <div className="text-lg font-semibold tracking-[0.18em] uppercase">
+        <button
+          onClick={openSidebar}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
+          aria-label="Abrir menu"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div className="text-right">
+          <div className="text-lg font-semibold tracking-[0.18em] uppercase text-emerald-400">
             Histórico
           </div>
-        </div>
-
-        <div className="relative h-9 w-9 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
-          <Image src={profilePhoto || getProfileImage()} alt="Perfil" fill sizes="36px" className="object-cover opacity-90" />
         </div>
       </div>
 

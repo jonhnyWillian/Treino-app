@@ -58,7 +58,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex flex-col h-full p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <div className="text-2xl font-black tracking-tighter text-emerald-400">WORKOUT APP</div>
+            <div className="text-2xl font-black tracking-tighter text-emerald-400">Aplicativo de Treino</div>
             <button onClick={onClose} className="theme-text-muted p-2 rounded-xl hover:bg-black/5">
               <X size={24} />
             </button>

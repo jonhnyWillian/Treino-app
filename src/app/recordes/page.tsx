@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, Star, Calendar, ChevronRight, TrendingUp, History } from "lucide-react";
+import { ArrowLeft, Trophy, Star, Calendar, ChevronRight, TrendingUp, History, Menu } from "lucide-react";
 import { listarRecordesPessoais, RecordePessoal } from "@/services/api";
+import { useNav } from "@/components/navWrapper";
+import { useRouter } from "next/navigation";
 
 export default function RecordesPage() {
+  const router = useRouter();
+  const { openSidebar } = useNav();
   const [recordes, setRecordes] = useState<RecordePessoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedEx, setExpandedEx] = useState<string | null>(null);
@@ -38,24 +42,34 @@ export default function RecordesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pb-20">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#0a0a0a]/80 backdrop-blur-md px-4 py-6">
-        <div className="mx-auto max-w-3xl flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
-          >
-            <ArrowLeft size={20} />
-          </Link>
+      <div className="mb-8 flex items-center justify-between">
+        <button
+          onClick={openSidebar}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
+          aria-label="Abrir menu"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div className="text-right flex items-center gap-4">
           <div>
             <h1 className="text-xl font-bold">Recordes Pessoais</h1>
             <p className="text-xs text-white/40 uppercase tracking-widest">Sua evolução constante</p>
           </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="rounded-full p-2 text-white/80 hover:text-white hover:bg-white/5 transition ring-1 ring-white/10"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={20} />
+          </button>
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 mt-6">
+      <div className="mt-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />

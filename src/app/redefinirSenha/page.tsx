@@ -138,7 +138,7 @@ export default function EsqueciSenhaPage() {
         {/* RODAPÉ */}
         <div className="mt-8 text-center">
           <p className="text-white/30 text-[10px] tracking-widest leading-loose uppercase">
-            Training Workout App<br />
+            Aplicativo de  Treino<br />
             © 2026 Todos os direitos reservados
           </p>
         </div>

@@ -18,7 +18,7 @@ export default function BottomNav() {
 
   return (
     // Container principal da barra de navegação fixa na parte inferior
-    <nav className="theme-surface fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[440px] sm:-translate-x-1/2 sm:rounded-3xl sm:border sm:shadow-2xl">
+    <nav className="theme-surface fixed bottom-0 left-1/2 w-full max-w-[480px] -translate-x-1/2 z-50 border-t backdrop-blur-xl sm:bottom-6 sm:w-[440px] sm:rounded-3xl sm:border sm:shadow-2xl">
       
       {/* Wrapper interno para alinhar os itens */}
       <div className="mx-auto flex w-full items-center justify-between px-6 py-3 sm:px-8">

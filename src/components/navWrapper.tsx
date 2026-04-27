@@ -1,14 +1,23 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
 import BottomNav from "@/components/bottomNav";
 import Sidebar from "@/components/sidebar";
-import { Menu } from "lucide-react";
+//import { Menu } from "lucide-react";
+
+// Contexto para permitir que as páginas abram a sidebar
+const NavContext = createContext<{ openSidebar: () => void }>({
+  openSidebar: () => { },
+});
+
+export const useNav = () => useContext(NavContext);
 
 export default function NavWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const openSidebar = () => setIsSidebarOpen(true);
 
   // Rotas onde NÃO deve aparecer a navbar
   const hiddenRoutes = ["/", "/cadastro", "/redefinirSenha", "/resetar-senha"] as const;
@@ -30,28 +39,21 @@ export default function NavWrapper({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex min-h-dvh w-full">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <NavContext.Provider value={{ openSidebar }}>
+      <div className="flex min-h-dvh w-full">
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <main
-        className="w-full flex-1 pt-20 pb-24 transition-all duration-300 sm:pt-24"
-      >
-        <div className="fixed left-4 top-4 z-[55] sm:left-6 sm:top-6">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="theme-icon-btn p-3"
-            aria-label="Abrir menu"
-          >
-            <Menu size={20} />
-          </button>
+        <main
+          className="w-full flex-1 transition-all duration-300"
+        >
+          {/* O botão de menu foi removido daqui para ser adicionado organicamente em cada página */}
+          {children}
+        </main>
+
+        <div>
+          <BottomNav />
         </div>
-
-        {children}
-      </main>
-
-      <div>
-        <BottomNav />
       </div>
-    </div>
+    </NavContext.Provider>
   );
 }
