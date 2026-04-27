@@ -18,7 +18,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ nome: string; email: string; sexo?: string } | null>(null);
+  const [user, setUser] = useState<{ nome: string; email: string; sexo?: string; fotoPerfil?: string | null } | null>(null);
 
   useEffect(() => {
     getPerfil().then(data => {
@@ -27,6 +27,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }, []);
 
   const getProfileImage = () => {
+    if (user?.fotoPerfil) return user.fotoPerfil;
     if (user?.sexo === "Feminino") return "/imagens/perfil/feminino.png";
     return "/imagens/perfil/masculino.png";
   };

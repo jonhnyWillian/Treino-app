@@ -80,6 +80,7 @@ export default function HistoricoPage() {
   }, []);
 
   const getProfileImage = () => {
+    if (profilePhoto) return profilePhoto;
     if (userGender === "Feminino") {
       return "/imagens/perfil/feminino.png";
     } else {

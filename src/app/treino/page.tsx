@@ -98,6 +98,7 @@ export default function TreinoPage() {
    * Padrão: imagem masculina caso o gênero não esteja definido.
    */
   const getProfileImage = () => {
+    if (profilePhoto) return profilePhoto;
     if (userGender === "Feminino") {
       return "/imagens/perfil/feminino.png";
     } else {

@@ -96,6 +96,7 @@ export default function DashboardPage() {
    * Isso melhora a experiência visual sem exigir foto obrigatória no cadastro.
    */
   const getProfileImage = () => {
+    if (profilePhoto) return profilePhoto;
     if (userGender === "Feminino") {
       return "/imagens/perfil/feminino.png";
     } else {
