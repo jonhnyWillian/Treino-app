@@ -5,53 +5,123 @@ import { OAuth2Client } from "google-auth-library";
 import { db } from "../config/knex.js";
 import { enviarEmailRecuperacao } from "../config/email.js";
 
-// Chave secreta usada para assinar e verificar os tokens JWT
+// ─── Configuração ────────────────────────────────────────────────────────────
+
 const SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
-// Instância do cliente OAuth2 do Google, configurada com o client_id da aplicação
+// Fator de custo do bcrypt centralizado aqui para facilitar ajuste futuro.
+// Aumentar esse valor torna o hash mais lento e resistente a brute-force,
+// mas também aumenta o tempo de resposta do servidor — 10 é o padrão seguro.
+const BCRYPT_SALT_ROUNDS = 10;
+
+// Comprimento mínimo aceito para qualquer senha da aplicação.
+// Centralizado para que cadastro, reset e redefinição usem a mesma regra.
+const SENHA_MIN_LENGTH = 8;
+
+// Instância do cliente OAuth2 do Google usada para verificar tokens de login social.
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// Falha rápida no boot: se a variável não estiver definida, o servidor não deve subir.
-// Evita que tokens sejam assinados com chave undefined (o que criaria uma vulnerabilidade grave).
+// Falha rápida no boot: se JWT_SECRET não estiver definido, o processo encerra antes
+// de aceitar qualquer requisição. Evita que tokens sejam assinados com `undefined`,
+// o que criaria uma vulnerabilidade grave (qualquer pessoa poderia forjar tokens).
 if (!SECRET) {
   throw new Error("JWT_SECRET não definido no .env");
 }
 
+// ─── Helpers privados ────────────────────────────────────────────────────────
+
 /**
- * Normaliza um endereço de e-mail para comparação consistente no banco.
+ * Normaliza um e-mail para comparação consistente no banco.
  *
- * Remove espaços acidentais e converte para minúsculas antes de qualquer
- * consulta ou inserção, evitando duplicidade por variações de capitalização
- * (ex: "User@Email.com" e "user@email.com" seriam tratados como iguais).
+ * Remove espaços acidentais nas bordas e converte para minúsculas antes de
+ * qualquer consulta ou inserção. Sem isso, "User@Email.com" e "user@email.com"
+ * seriam tratados como contas diferentes, gerando duplicidades silenciosas.
+ *
+ * @param {string} email
+ * @returns {string}
  */
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
 /**
- * Valida o campo `fotoPerfil` antes de persistir no banco de dados.
+ * Hasheia uma senha com bcrypt usando o fator de custo centralizado.
  *
- * Regras aplicadas:
+ * Centralizar aqui garante que todos os pontos de criação/troca de senha
+ * (cadastro, reset por token, redefinição logada, senha dummy do Google)
+ * usem sempre o mesmo algoritmo e custo, sem risco de divergência.
+ *
+ * @param {string} senha - Texto puro a ser hashado.
+ * @returns {Promise<string>} Hash bcrypt pronto para armazenar no banco.
+ */
+function hashSenha(senha) {
+  return bcrypt.hash(senha, BCRYPT_SALT_ROUNDS);
+}
+
+/**
+ * Gera um JWT assinado com o payload mínimo necessário (id e email).
+ *
+ * Mantemos o payload enxuto para não expor dados sensíveis no token,
+ * que é legível por qualquer um que o intercepte (apenas a assinatura é secreta).
+ * Validade de 1 hora limita a janela de uso de tokens vazados.
+ *
+ * Centralizar aqui garante que loginUsuario e googleLogin produzam tokens
+ * identicos em formato e expiração, sem risco de divergência futura.
+ *
+ * @param {{ id: number, email: string }} usuario
+ * @returns {string} JWT assinado.
+ */
+function gerarToken(usuario) {
+  return jwt.sign(
+    { id: usuario.id, email: usuario.email },
+    SECRET,
+    { expiresIn: "1h" }
+  );
+}
+
+/**
+ * Valida que a senha atende ao comprimento mínimo da aplicação.
+ *
+ * Centralizar a regra aqui garante que cadastro, reset e redefinição
+ * apliquem exatamente o mesmo critério. Retorna objeto `{ ok, message }`
+ * para que o controller possa retornar a resposta HTTP sem lógica extra.
+ *
+ * @param {string} senha
+ * @returns {{ ok: boolean, message?: string }}
+ */
+function validarSenha(senha) {
+  if (!senha || senha.length < SENHA_MIN_LENGTH) {
+    return {
+      ok: false,
+      message: `A senha deve ter no mínimo ${SENHA_MIN_LENGTH} caracteres`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Valida o campo `fotoPerfil` antes de persistir no banco.
+ *
+ * Regras:
  * - `undefined`: campo não enviado, nenhuma alteração necessária → ok.
- * - `null` ou `""`: remoção intencional da foto → ok.
- * - Tipo não-string: dado corrompido ou inválido → erro.
- * - String com mais de 3000000 caracteres: base64 muito grande que pode
- *   sobrecarregar o banco e a rede → erro com mensagem amigável.
+ * - falsy (null, ""): remoção intencional da foto → ok.
+ * - tipo não-string: dado corrompido ou inválido → erro.
+ * - string > 3 MB (aprox.): base64 muito grande que sobrecarrega banco e rede → erro.
  *
- * Retorna `{ ok: true }` para casos válidos ou `{ ok: false, message }` para inválidos.
+ * O colapso de `null` e `""` em um único `!foto` é seguro aqui porque
+ * ambos representam "remover a foto" — nenhum valor legítimo de foto é falsy.
+ *
+ * @param {any} fotoPerfil
+ * @returns {{ ok: boolean, message?: string }}
  */
 function validarFotoPerfil(fotoPerfil) {
-  if (fotoPerfil === undefined) {
-    return { ok: true };
-  }
-  if (fotoPerfil === null || fotoPerfil === "") {
-    return { ok: true };
-  } 
+  if (fotoPerfil === undefined) return { ok: true };
+  if (!fotoPerfil) return { ok: true };
+
   if (typeof fotoPerfil !== "string") {
     return { ok: false, message: "Foto de perfil inválida" };
   }
-
   if (fotoPerfil.length > 3_000_000) {
     return { ok: false, message: "Imagem muito grande. Use uma foto menor." };
   }
@@ -60,14 +130,43 @@ function validarFotoPerfil(fotoPerfil) {
 }
 
 /**
+ * Envia a resposta JSON padrão de autenticação bem-sucedida.
+ *
+ * Centralizar o shape aqui garante que loginUsuario e googleLogin retornem
+ * exatamente os mesmos campos ao cliente — sem risco de um ter `sexo` e o
+ * outro não, por exemplo. Qualquer mudança futura no contrato da API
+ * precisa ser feita em um único lugar.
+ *
+ * @param {import('express').Response} res
+ * @param {string} message - Mensagem descritiva do evento (ex: "Login realizado com sucesso").
+ * @param {{ id, nome, email, sexo }} usuario
+ * @param {string} token - JWT gerado para a sessão.
+ */
+function responderLogin(res, message, usuario, token) {
+  res.json({
+    message,
+    token,
+    usuario: {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      sexo: usuario.sexo,
+    },
+  });
+}
+
+// ─── Controllers ─────────────────────────────────────────────────────────────
+
+/**
  * Cadastra um novo usuário na aplicação.
  *
  * Fluxo:
  * 1. Normaliza nome e e-mail para evitar duplicidades por formatação.
- * 2. Valida campos obrigatórios (nome, email, senha).
- * 3. Verifica se o e-mail já está em uso para retornar erro descritivo.
- * 4. Gera hash da senha com bcrypt (fator 10) antes de salvar — nunca armazena senha em texto puro.
- * 5. Insere o usuário e retorna apenas os campos não sensíveis (id, nome, email).
+ * 2. Valida campos obrigatórios (nome, email, senha) e força da senha.
+ * 3. Verifica duplicidade de e-mail antes de inserir, retornando mensagem clara.
+ *    (Alternativa seria capturar unique constraint, mas a mensagem ficaria genérica.)
+ * 4. Hasheia a senha com bcrypt — nunca armazena texto puro.
+ * 5. Insere o usuário e retorna apenas os campos não-sensíveis (id, nome, email).
  */
 export async function cadastrarUsuario(req, res) {
   try {
@@ -76,114 +175,71 @@ export async function cadastrarUsuario(req, res) {
     email = normalizeEmail(email);
 
     if (!nome || !email || !senha) {
-      return res.status(400).json({
-        message: "Nome, email e senha são obrigatórios",
-      });
+      return res.status(400).json({ message: "Nome, email e senha são obrigatórios" });
     }
 
-    // Consulta prévia para evitar unique constraint error no banco,
-    // retornando uma mensagem de erro mais clara ao cliente.
-    const userCheck = await db("Usuarios")
-      .where({ email })
-      .first();
+    const validacaoSenha = validarSenha(senha);
+    if (!validacaoSenha.ok) {
+      return res.status(400).json({ message: validacaoSenha.message });
+    }
 
+    const userCheck = await db("Usuarios").where({ email }).first();
     if (userCheck) {
-      return res.status(400).json({
-        message: "Email já cadastrado",
-      });
+      return res.status(400).json({ message: "Email já cadastrado" });
     }
 
-    const senhaHash = await bcrypt.hash(senha, 10);
+    const senhaHash = await hashSenha(senha);
     const [usuario] = await db("Usuarios")
-      .insert({
-        nome,
-        idade: Number(idade) || null,
-        sexo,
-        telefone,
-        email,
-        senha: senhaHash
-      })
+      .insert({ nome, idade: Number(idade) || null, sexo, telefone, email, senha: senhaHash })
       .returning(["id", "nome", "email"]);
 
-    res.status(201).json({
-      message: "Usuário cadastrado com sucesso",
-      usuario,
-    });
+    res.status(201).json({ message: "Usuário cadastrado com sucesso", usuario });
 
   } catch (error) {
     console.error("❌ ERRO NO CADASTRO:", error);
-    res.status(500).json({
-      message: "Erro ao cadastrar usuário",
-    });
+    res.status(500).json({ message: "Erro ao cadastrar usuário" });
   }
 }
 
 /**
- * Autentica um usuário com e-mail e senha e retorna um token JWT.
+ * Autentica um usuário com e-mail e senha e retorna um JWT.
  *
  * Fluxo:
- * 1. Normaliza o e-mail para garantir consistência com o cadastro.
- * 2. Busca o usuário no banco; retorna 401 com mensagem genérica se não encontrado
- *    (evita enumerar quais e-mails existem no sistema — security best practice).
- * 3. Bloqueia contas com situação "desativado" antes de verificar a senha.
- * 4. Compara a senha fornecida com o hash armazenado via bcrypt.
- * 5. Gera um JWT com validade de 1h contendo apenas id e email (sem dados sensíveis).
- * 6. Retorna o token e os dados públicos do usuário para o cliente.
+ * 1. Normaliza o e-mail para consistência com o cadastro.
+ * 2. Busca o usuário; retorna 401 com mensagem genérica se não encontrado.
+ *    Mesma mensagem para "não existe" e "senha errada" — evita enumerar
+ *    quais e-mails estão cadastrados (security best practice).
+ * 3. Bloqueia contas desativadas antes de verificar a senha (short-circuit).
+ * 4. Compara a senha com o hash via bcrypt.
+ * 5. Gera o JWT e retorna via helper centralizado.
  */
 export async function loginUsuario(req, res) {
   try {
     let { email, senha } = req.body;
-
     email = normalizeEmail(email);
 
     if (!email || !senha) {
-      return res.status(400).json({
-        message: "Email e senha são obrigatórios",
-      });
+      return res.status(400).json({ message: "Email e senha são obrigatórios" });
     }
 
-    const usuario = await db("Usuarios")
-      .where({ email })
-      .first();
+    const usuario = await db("Usuarios").where({ email }).first();
 
-    // Mesma mensagem para "não encontrado" e "senha errada" para não vazar
-    // informações sobre quais e-mails estão cadastrados no sistema.
+    // Mensagem genérica intencional: não revela se o e-mail existe no sistema.
     if (!usuario) {
-      return res.status(401).json({
-        message: "Email ou senha inválidos",
-      });
+      return res.status(401).json({ message: "Email ou senha inválidos" });
     }
 
     if (usuario.situacao === "desativado") {
-      return res.status(403).json({
-        message: "Conta desativada",
-      });
+      return res.status(403).json({ message: "Conta desativada" });
     }
 
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
-
     if (!senhaValida) {
-      return res.status(401).json({
-        message: "Email ou senha inválidos",
-      });
+      return res.status(401).json({ message: "Email ou senha inválidos" });
     }
 
-    const token = jwt.sign(
-      { id: usuario.id, email: usuario.email },
-      SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.json({
-      message: "Login realizado com sucesso",
-      token,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        sexo: usuario.sexo
-      },
-    });
+    const token = gerarToken(usuario);
+    responderLogin(res, "Login realizado com sucesso", usuario, token);
 
   } catch (error) {
     console.error("❌ ERRO NO LOGIN:", error);
@@ -192,16 +248,16 @@ export async function loginUsuario(req, res) {
 }
 
 /**
- * Inicia o fluxo de recuperação de senha via e-mail.
+ * Inicia o fluxo de recuperação de senha via e-mail (fluxo deslogado).
  *
  * Fluxo:
- * 1. Gera um token aleatório criptograficamente seguro (32 bytes → 64 chars hex).
- * 2. Define expiração de 15 minutos para limitar a janela de uso do token.
- * 3. Salva o token e sua expiração no banco vinculados ao usuário.
- * 4. Envia o e-mail com o link de redefinição.
+ * 1. Gera um token aleatório de 32 bytes (64 chars hex) — criptograficamente seguro.
+ * 2. Define expiração de 15 minutos para limitar a janela de uso.
+ * 3. Persiste o token e sua expiração vinculados ao usuário.
+ * 4. Envia o e-mail com o link de redefinição apontando para APP_URL (não localhost).
  *
- * Segurança: retorna a mesma mensagem independente de o e-mail existir ou não,
- * prevenindo enumeração de usuários cadastrados por parte de atacantes.
+ * Retorna a mesma mensagem independente de o e-mail existir ou não,
+ * prevenindo que um atacante enumere quais contas estão cadastradas.
  */
 export async function forgotPassword(req, res) {
   try {
@@ -217,31 +273,26 @@ export async function forgotPassword(req, res) {
       .select("id", "nome", "email")
       .first();
 
-    // Resposta genérica mesmo quando o usuário não existe — evita enumeração de contas.
+    // Resposta genérica intencional mesmo quando o usuário não existe.
     if (!usuario) {
-      return res.json({
-        message: "Se o email estiver cadastrado, enviaremos instruções",
-      });
+      return res.json({ message: "Se o email estiver cadastrado, enviaremos instruções" });
     }
 
-    // Token seguro gerado com crypto para não ser previsível ou forjável
+    // crypto.randomBytes garante que o token seja imprevisível e não forjável.
     const token = crypto.randomBytes(32).toString("hex");
-    // Expiração de 15 minutos a partir do momento atual
     const exp = new Date(Date.now() + 1000 * 60 * 15);
 
     await db("Usuarios")
       .where({ id: usuario.id })
-      .update({
-        resetToken: token,
-        resetTokenExp: exp
-      });
+      .update({ resetToken: token, resetTokenExp: exp });
 
-    const link = `http://localhost:3000/resetar-senha?token=${token}`;
+    // APP_URL vem do ambiente para funcionar tanto em dev quanto em produção.
+    // Hardcodar localhost aqui quebraria os e-mails em staging/produção.
+    const baseUrl = process.env.APP_URL;
+    const link = `${baseUrl}/resetar-senha?token=${token}`;
     await enviarEmailRecuperacao(usuario.email, link);
 
-    res.json({
-      message: "Se o email estiver cadastrado, enviaremos instruções",
-    });
+    res.json({ message: "Se o email estiver cadastrado, enviaremos instruções" });
 
   } catch (error) {
     console.error("❌ ERRO forgotPassword:", error);
@@ -250,14 +301,16 @@ export async function forgotPassword(req, res) {
 }
 
 /**
- * Redefine a senha de um usuário via token de recuperação.
+ * Redefine a senha via token de recuperação recebido por e-mail (fluxo deslogado).
  *
  * Fluxo:
- * 1. Valida presença dos campos obrigatórios (token e novaSenha).
- * 2. Busca o usuário cujo token coincide E ainda não expirou (data > agora).
- *    A checagem de expiração é feita diretamente no SQL para consistência.
- * 3. Gera o hash da nova senha e atualiza o banco.
- * 4. Invalida o token após uso (null) para impedir reutilização — one-time use.
+ * 1. Valida presença dos campos obrigatórios.
+ * 2. Valida força da nova senha antes de qualquer operação no banco.
+ * 3. Busca o usuário cujo token coincide E ainda não expirou — a checagem de
+ *    expiração é feita diretamente no SQL para consistência com o fuso do banco.
+ * 4. Hasheia a nova senha e atualiza o registro.
+ * 5. Invalida o token após uso (seta null) — garante uso único (one-time use).
+ *    Sem isso, o mesmo link poderia ser reutilizado indefinidamente.
  */
 export async function resetPassword(req, res) {
   try {
@@ -267,7 +320,13 @@ export async function resetPassword(req, res) {
       return res.status(400).json({ message: "Dados incompletos" });
     }
 
+    const validacaoSenha = validarSenha(novaSenha);
+    if (!validacaoSenha.ok) {
+      return res.status(400).json({ message: validacaoSenha.message });
+    }
+
     // A condição `resetTokenExp > now` garante que tokens expirados sejam rejeitados
+    // mesmo que o registro ainda exista no banco.
     const usuario = await db("Usuarios")
       .where("resetToken", token)
       .andWhere("resetTokenExp", ">", new Date())
@@ -277,16 +336,12 @@ export async function resetPassword(req, res) {
       return res.status(400).json({ message: "Token inválido ou expirado" });
     }
 
-    const hash = await bcrypt.hash(novaSenha, 10);
+    const hash = await hashSenha(novaSenha);
 
-    // Zera o token após uso para que o mesmo link não possa ser reutilizado
+    // Zera o token após uso para que o mesmo link não possa ser reutilizado.
     await db("Usuarios")
       .where({ id: usuario.id })
-      .update({
-        senha: hash,
-        resetToken: null,
-        resetTokenExp: null
-      });
+      .update({ senha: hash, resetToken: null, resetTokenExp: null });
 
     res.json({ message: "Senha redefinida com sucesso!" });
 
@@ -299,24 +354,16 @@ export async function resetPassword(req, res) {
 /**
  * Retorna os dados do perfil do usuário autenticado.
  *
- * O id do usuário é extraído do token JWT pelo middleware de autenticação
- * e disponibilizado em `req.usuario.id` — nunca confia no body da requisição.
- * Seleciona apenas os campos necessários para não expor dados sensíveis (ex: senha, resetToken).
+ * O id do usuário vem de `req.usuario`, populado pelo middleware de autenticação
+ * a partir do JWT — nunca do body da requisição, o que seria inseguro.
+ * Seleciona apenas os campos necessários para não expor dados sensíveis
+ * (senha, resetToken, resetTokenExp nunca saem nessa rota).
  */
 export async function getPerfil(req, res) {
   try {
     const usuario = await db("Usuarios")
       .where({ id: req.usuario.id })
-      .select(
-        "id",
-        "nome",
-        "email",
-        "idade",
-        "peso",
-        "altura",
-        "sexo",
-        "fotoPerfil"
-      )
+      .select("id", "nome", "email", "idade", "peso", "altura", "sexo", "fotoPerfil")
       .first();
 
     if (!usuario) {
@@ -334,23 +381,23 @@ export async function getPerfil(req, res) {
 /**
  * Atualiza parcialmente o perfil do usuário autenticado (peso, altura e/ou foto).
  *
- * Usa PATCH semântico: apenas os campos enviados no body são atualizados.
- * Campos ausentes (undefined) são ignorados — o banco não recebe o campo.
- * Isso evita sobrescrever acidentalmente valores existentes com null.
+ * Usa semântica PATCH: apenas os campos presentes no body são atualizados.
+ * Campos ausentes (undefined) não entram no objeto de update — o banco não
+ * recebe o campo e o valor existente é preservado intacto.
  *
  * Fluxo por campo:
  * - `peso` / `altura`: converte para Number e valida que é finito e positivo.
- * - `fotoPerfil`: delega a validação para `validarFotoPerfil` (tipo, tamanho).
+ * - `fotoPerfil`: delega para `validarFotoPerfil` (tipo e tamanho).
  *
- * Após a atualização, rebusca o usuário completo para retornar os dados atualizados,
- * garantindo que o cliente receba os valores efetivamente persistidos no banco.
+ * Após o update, rebusca o registro completo para retornar os valores
+ * efetivamente persistidos no banco — evita retornar dados stale do body.
  */
 export async function updatePerfil(req, res) {
   try {
     const id = req.usuario.id;
     const { peso, altura, fotoPerfil } = req.body;
 
-    // Objeto construído dinamicamente: só recebe os campos que foram enviados
+    // Objeto construído dinamicamente: só recebe os campos enviados na requisição.
     const updateData = {};
 
     if (peso !== undefined) {
@@ -374,15 +421,14 @@ export async function updatePerfil(req, res) {
       if (!validacaoFoto.ok) {
         return res.status(400).json({ message: validacaoFoto.message });
       }
-      // Converte string vazia para null para não salvar valor vazio no banco
+      // String vazia convertida para null: evita salvar valor vazio no banco,
+      // mantendo consistência com o tipo da coluna (nullable text/bytea).
       updateData.fotoPerfil = fotoPerfil || null;
     }
 
-    await db("Usuarios")
-      .where({ id })
-      .update(updateData);
+    await db("Usuarios").where({ id }).update(updateData);
 
-    // Rebusca o registro atualizado para retornar os dados reais do banco ao cliente
+    // Rebusca o registro atualizado para retornar os dados reais do banco.
     const usuario = await db("Usuarios")
       .where({ id })
       .select("id", "nome", "email", "idade", "peso", "altura", "sexo", "fotoPerfil")
@@ -399,16 +445,15 @@ export async function updatePerfil(req, res) {
 /**
  * Desativa a conta do usuário autenticado (soft delete).
  *
- * Usa soft delete (situacao = "desativado") em vez de deletar o registro,
- * preservando o histórico de treinos e dados associados.
- * O login bloqueará contas desativadas antes de validar a senha.
+ * Usa soft delete (situacao = "desativado") em vez de DELETE para preservar
+ * o histórico de treinos e demais dados associados ao usuário.
+ * O controller `loginUsuario` bloqueia contas desativadas antes de validar
+ * a senha, impedindo o acesso sem apagar os dados.
  */
 export async function desativarConta(req, res) {
   try {
-    const usuarioId = req.usuario.id;
-
     await db("Usuarios")
-      .where({ id: usuarioId })
+      .where({ id: req.usuario.id })
       .update({ situacao: "desativado" });
 
     res.json({ message: "Conta desativada com sucesso" });
@@ -422,24 +467,28 @@ export async function desativarConta(req, res) {
 /**
  * Redefine a senha do usuário já autenticado (fluxo logado).
  *
- * Diferente do `resetPassword` (fluxo por token de e-mail), esta rota
- * exige autenticação via JWT, portanto não precisa validar token de recuperação.
- * O id do usuário vem do middleware de autenticação, não do body da requisição.
- * A nova senha é hashada com bcrypt antes de ser salva.
+ * Diferente de `resetPassword` (que usa token de e-mail), esta rota exige
+ * um JWT válido — o usuário já está dentro da sessão e quer trocar a senha.
+ * O id vem do middleware de autenticação, não do body da requisição.
+ * A nova senha passa pela mesma validação de força aplicada no cadastro.
  */
 export async function redefinirSenhaLogado(req, res) {
   try {
     const { novaSenha } = req.body;
-    const usuarioId = req.usuario.id;
 
     if (!novaSenha) {
       return res.status(400).json({ message: "Nova senha é obrigatória" });
     }
 
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    const validacaoSenha = validarSenha(novaSenha);
+    if (!validacaoSenha.ok) {
+      return res.status(400).json({ message: validacaoSenha.message });
+    }
+
+    const senhaHash = await hashSenha(novaSenha);
 
     await db("Usuarios")
-      .where({ id: usuarioId })
+      .where({ id: req.usuario.id })
       .update({ senha: senhaHash });
 
     res.json({ message: "Senha redefinida com sucesso" });
@@ -456,17 +505,16 @@ export async function redefinirSenhaLogado(req, res) {
  * Fluxo:
  * 1. Recebe o `idToken` gerado pelo SDK do Google no frontend.
  * 2. Verifica a assinatura e validade do token com a biblioteca oficial do Google,
- *    garantindo que o token não foi forjado e pertence à nossa aplicação.
- * 3. Extrai e-mail e nome do payload verificado.
- * 4. Busca o usuário no banco pelo e-mail normalizado.
- *    - Se não existir: cria automaticamente com uma senha aleatória inutilizável
- *      (o usuário nunca precisará desta senha, pois acessa via Google).
- *    - Se existir: segue para geração do JWT.
- * 5. Bloqueia contas desativadas antes de emitir o token.
- * 6. Retorna JWT e dados públicos do usuário, igual ao fluxo de login convencional.
+ *    garantindo que não foi forjado e pertence a esta aplicação (audience check).
+ * 3. Busca o usuário pelo e-mail normalizado do payload.
+ *    - Não existe → cria automaticamente (just-in-time provisioning) com senha
+ *      dummy inutilizável, impedindo login convencional com esse e-mail.
+ *    - Existe → segue direto para geração do JWT.
+ * 4. Bloqueia contas desativadas antes de emitir o token.
+ * 5. Retorna JWT e dados públicos via helper centralizado, idêntico ao login convencional.
  *
- * A senha dummy usa `crypto.randomBytes` para ser criptograficamente segura
- * e impossível de adivinhar, caso alguém tente fazer login convencional com o e-mail.
+ * A senha dummy usa crypto.randomBytes para ser criptograficamente imprevisível —
+ * ninguém consegue fazer login convencional com esse e-mail mesmo conhecendo o fluxo.
  */
 export async function googleLogin(req, res) {
   try {
@@ -476,62 +524,37 @@ export async function googleLogin(req, res) {
       return res.status(400).json({ message: "Token do Google não fornecido" });
     }
 
-    // Verificação criptográfica do token junto aos servidores do Google
+    // Verificação criptográfica do token junto aos servidores do Google.
+    // audience: garante que o token foi emitido especificamente para esta aplicação.
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
     });
 
-    const payload = ticket.getPayload();
-    const { email, name } = payload;
-
+    const { email, name } = ticket.getPayload();
     const emailNormalizado = normalizeEmail(email);
 
-    let usuario = await db("Usuarios")
-      .where({ email: emailNormalizado })
-      .first();
+    let usuario = await db("Usuarios").where({ email: emailNormalizado }).first();
 
-    // Cadastro automático (just-in-time provisioning): cria o usuário na primeira vez
-    // que faz login com Google, sem necessidade de fluxo de cadastro separado.
     if (!usuario) {
-      // Senha aleatória e inutilizável: impede login convencional com este e-mail
+      // Senha aleatória e inutilizável: impede login convencional com este e-mail,
+      // pois ninguém (nem o próprio usuário) conhece essa senha.
       const senhaDummy = crypto.randomBytes(16).toString("hex");
-      const senhaHash = await bcrypt.hash(senhaDummy, 10);
+      const senhaHash = await hashSenha(senhaDummy);
 
       const [novoUsuario] = await db("Usuarios")
-        .insert({
-          nome: name,
-          email: emailNormalizado,
-          senha: senhaHash
-        })
+        .insert({ nome: name, email: emailNormalizado, senha: senhaHash })
         .returning(["id", "nome", "email", "sexo"]);
 
       usuario = novoUsuario;
     }
 
-    // Verifica desativação após o upsert para cobrir tanto usuários novos quanto existentes
-    if (usuario.situacao && usuario.situacao === "desativado") {
-      return res.status(403).json({
-        message: "Conta desativada",
-      });
+    if (usuario.situacao === "desativado") {
+      return res.status(403).json({ message: "Conta desativada" });
     }
 
-    const jwtToken = jwt.sign(
-      { id: usuario.id, email: usuario.email },
-      SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.json({
-      message: "Login com Google realizado com sucesso",
-      token: jwtToken,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        sexo: usuario.sexo
-      },
-    });
+    const jwtToken = gerarToken(usuario);
+    responderLogin(res, "Login com Google realizado com sucesso", usuario, jwtToken);
 
   } catch (error) {
     console.error("❌ ERRO GOOGLE LOGIN:", error);
