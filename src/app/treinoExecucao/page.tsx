@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { treinos, TipoTreino } from "@/data/treinos";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -32,10 +31,6 @@ type FinishedWorkoutSummary = {
 
 export default function TreinoExecucaoPage() {
   const router = useRouter();
-
-  // Gênero do usuário — controla qual foto de perfil exibir
-  const [userGender, setUserGender] = useState<string | null>(null);
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   // Configuração do treino lida do sessionStorage (tipo, dia e grupos musculares)
   const [config, setConfig] = useState<TrainingConfig | null>(null);
@@ -69,21 +64,6 @@ export default function TreinoExecucaoPage() {
    */
   useEffect(() => {
     const timeout = setTimeout(async () => {
-      const userStr = localStorage.getItem("usuario");
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.sexo) setUserGender(user.sexo);
-          if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
-        } catch { }
-      }
-
-      try {
-        const perfil = await getPerfil();
-        if (perfil?.sexo) setUserGender(perfil.sexo);
-        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
-      } catch { }
-
       const configStr = sessionStorage.getItem("ATIVOTrainingConfig");
       if (!configStr) {
         toast.error("Configure o treino antes de iniciar.");
@@ -139,19 +119,6 @@ export default function TreinoExecucaoPage() {
     }
     return () => clearInterval(interval);
   }, [startTime]);
-
-  /**
-   * Retorna o caminho da imagem de perfil com base no gênero do usuário.
-   * Padrão: imagem masculina caso o gênero não esteja definido.
-   */
-  const getProfileImage = () => {
-    if (profilePhoto) return profilePhoto;
-    if (userGender === "Feminino") {
-      return "/imagens/perfil/feminino.png";
-    } else {
-      return "/imagens/perfil/masculino.png";
-    }
-  };
 
   /**
    * Gera a lista de exercícios sugeridos com base nos grupos musculares da configuração.

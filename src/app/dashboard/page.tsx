@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Dumbbell, Flame, LayoutDashboard, Plus, Timer, Trophy, Menu } from "lucide-react";
+import { ChevronRight, Dumbbell, Flame, Plus, Timer, Trophy, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getDashboardResumo, getPerfil, type DashboardResumoResponse } from "@/services/api";
 import { useNav } from "@/components/navWrapper";
 
 export default function DashboardPage() {
   const { openSidebar } = useNav();
-  const [userGender, setUserGender] = useState<string | null>(null);
   const [userName, setUserName] = useState("Atleta");
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardResumoResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Bom dia");
@@ -50,9 +48,7 @@ export default function DashboardPage() {
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
-          if (user.sexo) setUserGender(user.sexo);
           if (user.nome) setUserName(user.nome);
-          if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
         }
         catch { }
       }
@@ -60,8 +56,6 @@ export default function DashboardPage() {
       try {
         const perfil = await getPerfil();
         if (perfil?.nome) setUserName(perfil.nome);
-        if (perfil?.sexo) setUserGender(perfil.sexo);
-        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
       } catch { }
 
       const resumo = await getDashboardResumo();
@@ -89,22 +83,6 @@ export default function DashboardPage() {
     // Cancela o intervalo quando o componente for desmontado.
     return () => clearInterval(interval);
   }, []);
-
-  /**
-   * Retorna o caminho da imagem de perfil padrão com base no gênero do usuário.
-   *
-   * Se o usuário não tiver enviado uma foto personalizada, exibe um avatar genérico
-   * feminino ou masculino, dependendo do dado salvo no perfil.
-   * Isso melhora a experiência visual sem exigir foto obrigatória no cadastro.
-   */
-  const getProfileImage = () => {
-    if (profilePhoto) return profilePhoto;
-    if (userGender === "Feminino") {
-      return "/imagens/perfil/feminino.png";
-    } else {
-      return "/imagens/perfil/masculino.png";
-    }
-  };
 
   /**
    * Formata uma duração em segundos para uma string legível em horas e minutos.

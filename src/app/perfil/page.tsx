@@ -76,8 +76,6 @@ export default function PerfilPage() {
   const [peso, setPeso] = useState<string>("");
   const [altura, setAltura] = useState<string>("");
   const [salvando, setSalvando] = useState(false);
-  // Controla a visibilidade do menu dropdown de configurações (redefinir senha, desativar conta)
-  const [showSettings, setShowSettings] = useState(false);
   // Controla a visibilidade do modal de redefinição de senha
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
@@ -90,26 +88,10 @@ export default function PerfilPage() {
   const [desativando, setDesativando] = useState(false);
 
   /**
-   * Fecha o dropdown de configurações e abre o modal de redefinição de senha.
-   *
-   * Separado em função própria para garantir que o menu sempre feche
-   * antes de o modal aparecer, evitando sobreposição visual.
+   * Abre o modal de redefinição de senha.
    */
   const handleRedefinirSenha = () => {
-    setShowSettings(false);
     setShowPasswordModal(true);
-  };
-
-  /**
-   * Fecha o dropdown de configurações e abre o modal de confirmação de desativação.
-   *
-   * Substituiu o uso de `confirm()` nativo do browser, que bloqueia a thread principal
-   * e não pode ser estilizado. O modal mantém o fluxo dentro do app, preservando
-   * a experiência visual e permitindo exibir um estado de loading durante a requisição.
-   */
-  const handleDesativarConta = () => {
-    setShowSettings(false);
-    setShowDesativarModal(true);
   };
 
   /**

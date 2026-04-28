@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPerfil, listarHistorico } from "@/services/api";
+import { listarHistorico } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useNav } from "@/components/navWrapper";
 import {
   Activity,
-  Calendar,
   ChevronDown,
+  Clock,
   Dumbbell,
   Hand,
   History,
   Menu,
+  Share2,
   Zap,
 } from "lucide-react";
-import Image from "next/image";
+//import Image from "next/image";
 
 interface WorkoutHistory {
   id: number;
@@ -39,8 +40,6 @@ export default function HistoricoPage() {
   const { openSidebar } = useNav();
   const [historico, setHistorico] = useState<WorkoutHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userGender, setUserGender] = useState<string | null>(null);
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   /**
    * Carrega o histórico de treinos ao montar o componente.
@@ -52,21 +51,6 @@ export default function HistoricoPage() {
    */
   useEffect(() => {
     const timeout = setTimeout(async () => {
-      const userStr = localStorage.getItem("usuario");
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.sexo) setUserGender(user.sexo);
-          if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
-        } catch { }
-      }
-
-      try {
-        const perfil = await getPerfil();
-        if (perfil?.sexo) setUserGender(perfil.sexo);
-        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
-      } catch { }
-
       try {
         const data = await listarHistorico();
         setHistorico(Array.isArray(data) ? data : []);
@@ -81,21 +65,6 @@ export default function HistoricoPage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  const getProfileImage = () => {
-    if (profilePhoto) return profilePhoto;
-    if (userGender === "Feminino") {
-      return "/imagens/perfil/feminino.png";
-    } else {
-      return "/imagens/perfil/masculino.png";
-    }
-  };
-
-  /**
-   * Formata uma string de data ISO para exibição compacta em pt-BR.
-   *
-   * Exibe apenas dia e mês abreviado, ideal para listagens onde o espaço é limitado.
-   * Exemplo: "2024-06-15T14:30:00Z" → "15 de jun."
-   */
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("pt-BR", {
@@ -104,24 +73,19 @@ export default function HistoricoPage() {
     });
   };
 
-  /**
-   * Formata uma duração em segundos para o formato MM:SS.
-   *
-   * Retorna "--:--" para valores nulos, undefined ou zerados,
-   * evitando exibir "00:00" quando a duração não foi registrada.
-   * Usa padStart para garantir sempre dois dígitos em minutos e segundos.
-   * Exemplo: 185 → "03:05"
-   */
-  const formatDuration = (seconds?: number | null) => {
-    if (!seconds || seconds <= 0) {
-      return "--:--";
-    }
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const [expandedWorkout, setExpandedWorkout] = useState<number | null>(null);
+
+  const toggleWorkoutExpansion = (id: number) => {
+    setExpandedWorkout(expandedWorkout === id ? null : id);
   };
 
-  const handleOpenFinishedWorkout = (item: WorkoutHistory) => {
+  const handleOpenPerformanceScreen = (e: React.MouseEvent, item: WorkoutHistory) => {
+    e.stopPropagation();
+
+    // Calcula o volume total e séries para o resumo
+    const totalVolume = (item.series ?? []).reduce((sum, s) => sum + (Number(s.carga) || 0), 0);
+    const totalSeries = (item.series ?? []).length;
+
     const groupedSeries = (item.series ?? []).reduce<
       Record<string, NonNullable<WorkoutHistory["series"]>>
     >((acc, serie) => {
@@ -157,6 +121,8 @@ export default function HistoricoPage() {
       nomeTreino: item.NomeTreino,
       dataTreino: item.dataTreino,
       duracaoSegundos: item.duracaoSegundos ?? 0,
+      totalVolume: totalVolume,
+      totalSeries: totalSeries,
       exercicios: exercises,
     };
 
@@ -192,154 +158,185 @@ export default function HistoricoPage() {
     0,
   );
   const totalHours = Math.floor(totalDuration / 3600);
-  const totalMinutes = Math.floor((totalDuration % 3600) / 60);
 
   return (
-    <div className="w-full px-4 pb-32 pt-4 sm:px-5 sm:pt-6">
-      <div className="flex items-center justify-between">
+    <div className="w-full px-4 pb-32 pt-4 sm:px-6 sm:pt-6 bg-[#0a0f18] min-h-screen text-white">
+      {/* Header Estilizado */}
+      <div className="flex items-center justify-between mb-8">
         <button
           onClick={openSidebar}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10"
-          aria-label="Abrir menu"
         >
-          <Menu size={20} />
+          <Menu size={20} className="text-emerald-400" />
         </button>
 
-        <div className="text-right">
-          <div className="text-lg font-semibold tracking-[0.18em] uppercase text-emerald-400">
-            Histórico
+        <h1 className="text-2xl font-bold text-emerald-400">Histórico</h1>
+
+        <div className="w-10" /> {/* Espaçador para manter o título centralizado */}
+      </div>
+
+      {/* Monthly Summary Section */}
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-xl font-bold text-white">Resumo Mensal</h2>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+          {new Date().toLocaleDateString("pt-br", { month: "long" })}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-4">
+        <div className="rounded-[32px] bg-[#111d33] p-8 ring-1 ring-white/10">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">
+            Treinos Concluídos
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-6xl font-black text-emerald-400">{totalTreinos}</span>
+            <span className="text-xl font-bold text-white/60">sessões</span>
           </div>
         </div>
       </div>
 
-      {/* Card de resumo mensal: exibe total de treinos, volume acumulado e tempo total */}
-      <div className="mt-6 rounded-[28px] bg-[#111d33] p-5 ring-1 ring-white/10">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-300/70">
-              Desempenho mensal
-            </div>
-            <div className="mt-2 flex flex-wrap items-end gap-2">
-              <span className="text-4xl font-extrabold leading-none sm:text-5xl">{totalTreinos}</span>
-              <span className="pb-1 text-white/65">Treinos concluídos</span>
-            </div>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="rounded-[32px] bg-[#111d33] p-6 ring-1 ring-white/10">
+          <div className="h-10 w-10 flex items-center justify-center rounded-2xl bg-emerald-500/20 mb-4">
+            <Dumbbell size={20} className="text-emerald-400" />
           </div>
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-white/35">
-            <Calendar size={26} />
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-2xl font-bold text-white">
+              {totalVolume > 1000 ? (totalVolume / 1000).toFixed(1) : totalVolume}
+            </span>
+            <span className="text-xs font-bold text-emerald-400 uppercase">
+              {totalVolume > 1000 ? "t" : "kg"}
+            </span>
+          </div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-white/40">
+            Total Volume
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {/* Exibe "--" quando não há volume registrado, evitando mostrar "0.0 kg" */}
-          <div className="rounded-2xl bg-[#0f1a2f] p-3 ring-1 ring-white/5">
-            <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
-              Volume total
-            </div>
-            <div className="mt-1 text-xl font-bold text-emerald-300">
-              {totalVolume > 0 ? `${totalVolume.toFixed(1)} kg` : "--"}
-            </div>
+        <div className="rounded-[32px] bg-[#111d33] p-6 ring-1 ring-white/10">
+          <div className="h-10 w-10 flex items-center justify-center rounded-2xl bg-emerald-500/20 mb-4">
+            <Clock size={20} className="text-emerald-400" />
           </div>
-          {/* Exibe "--" quando não há duração registrada */}
-          <div className="rounded-2xl bg-[#0f1a2f] p-3 ring-1 ring-white/5">
-            <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
-              Tempo total
-            </div>
-            <div className="mt-1 text-xl font-bold text-emerald-300">
-              {totalDuration > 0 ? `${totalHours}h ${totalMinutes}m` : "--"}
-            </div>
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-2xl font-bold text-white">{totalHours}</span>
+            <span className="text-xs font-bold text-emerald-400 uppercase">h</span>
+          </div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-white/40">
+            Tempo total
           </div>
         </div>
       </div>
 
-      {/* Renderização condicional: spinner durante carregamento, estado vazio ou lista de treinos */}
+      {/* Recent Activity Section */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-white">Atividade recente</h2>       
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
         </div>
       ) : historico.length === 0 ? (
-        // Estado vazio: exibido quando o usuário ainda não registrou nenhum treino
         <div className="text-center py-20 bg-white/5 rounded-3xl ring-1 ring-white/10">
           <History size={48} className="mx-auto text-white/20 mb-4" />
           <p className="text-white/50">Nenhum treino realizado ainda.</p>
         </div>
       ) : (
-        <div className="mt-5 space-y-4">
+        <div className="space-y-4">
           {historico.map((item, index) => {
-            /**
-             * Converte a string de exercícios (separada por vírgula) em um array limpo.
-             *
-             * Usa trim() e filter(Boolean) para remover espaços extras e entradas vazias
-             * que podem surgir de vírgulas duplicadas ou espaços no valor da API.
-             * Serve como fallback quando as séries detalhadas não estão disponíveis.
-             */
             const exercicios =
               item.ExerciciosRealizados?.trim()
                 ? item.ExerciciosRealizados.split(",").map((s) => s.trim()).filter(Boolean)
                 : [];
 
-            // Seleciona o ícone do card com base na posição do treino na lista (ciclo de 4 ícones)
             const Icon = iconByIndex[index % iconByIndex.length];
+            const displayExercisesPreview = exercicios.slice(0, 3).join(", ") + (exercicios.length > 3 ? `, +${exercicios.length - 3} more` : "");
+            const isExpanded = expandedWorkout === item.id;
 
-            /**
-             * Agrupa as séries do treino pelo nome do exercício.
-             *
-             * Transforma o array flat de séries em um objeto onde cada chave é o nome
-             * do exercício e o valor é o array de séries correspondentes.
-             * Isso permite exibir uma linha por exercício no detalhe expandido,
-             * consolidando séries, repetições e melhor carga em uma única linha.
-             */
+            // Agrupamento para exibição detalhada inline
             const groupedSeries = (item.series ?? []).reduce<
               Record<string, NonNullable<WorkoutHistory["series"]>>
-            >(
-              (acc, serie) => {
-                const key = serie.exercicioNome || "Exercício";
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(serie);
-                return acc;
-              },
-              {},
-            );
-
-            // Prioriza a contagem de exercícios agrupados pelas séries detalhadas;
-            // cai para o array de nomes simples se as séries não estiverem disponíveis.
-            const qtdExercicios = Object.keys(groupedSeries).length || exercicios.length;
+            >((acc, serie) => {
+              const key = serie.exercicioNome || "Exercício";
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(serie);
+              return acc;
+            }, {});
 
             return (
               <div
                 key={item.id}
-                className="overflow-hidden rounded-[24px] bg-[#101b30] ring-1 ring-white/10 transition-all duration-300 hover:bg-[#15233f]"
+                className="group relative overflow-hidden rounded-[32px] bg-[#111d33] ring-1 ring-white/10 transition-all duration-300 hover:bg-[#1a263d]"
               >
-                {/* Cabeçalho clicável do card: aciona o toggle de expansão ao clicar */}
-                <button
-                  onClick={() => handleOpenFinishedWorkout(item)}
-                  className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left"
+                <div
+                  onClick={() => toggleWorkoutExpansion(item.id)}
+                  className="p-5 cursor-pointer"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/20">
-                      <Icon size={18} />
+                  <div className="flex items-center gap-4">
+                    {/* Ícone estilizado conforme imagem */}
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
+                      <Icon size={24} className={isExpanded ? "text-emerald-400" : "text-emerald-400/60"} />
                     </div>
-                    <div className="space-y-1">
-                      <h3 className="truncate text-lg font-semibold leading-tight text-white/95 sm:text-[20px] sm:leading-none">
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-white truncate mb-1">
                         {item.NomeTreino}
                       </h3>
-                      <div className="flex items-center gap-1 text-xs text-white/50">
-                        <Calendar size={12} />
-                        {formatDate(item.dataTreino)} - {formatDuration(item.duracaoSegundos)}
+                      <div className="flex items-center gap-2 text-xs text-white/40 mb-1">
+                        <span>{formatDate(item.dataTreino)}</span>
+                        <span>•</span>
+                        <span>{Math.floor((item.duracaoSegundos ?? 0) / 60)} min</span>
                       </div>
+                      {!isExpanded && (
+                        <p className="text-[11px] text-white/30 italic truncate">
+                          {displayExercisesPreview}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={(e) => handleOpenPerformanceScreen(e, item)}
+                        className="p-2 rounded-full bg-emerald-400/10 hover:bg-emerald-400/20 text-emerald-400 transition-colors"
+                        title="Compartilhar / Performance"
+                      >
+                        <Share2 size={18} />
+                      </button>
+                      <ChevronDown
+                        size={20}
+                        className={`text-white/20 transition-transform duration-300 ${isExpanded ? "rotate-180 text-emerald-400" : ""}`}
+                      />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-white/45">
-                        Exercícios
+
+                  {/* Detalhes dos Exercícios (Exibição Inline) */}
+                  {isExpanded && (
+                    <div className="mt-6 space-y-3 border-t border-white/5 pt-4">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/60 mb-3">
+                        Exercícios Realizados
                       </div>
-                      <div className="text-2xl font-bold leading-none text-emerald-300">
-                        {qtdExercicios}
-                      </div>
+                      {Object.entries(groupedSeries).length > 0 ? (
+                        Object.entries(groupedSeries).map(([name, series]) => (
+                          <div key={name} className="flex items-center justify-between rounded-xl bg-white/5 p-3 ring-1 ring-white/5">
+                            <span className="text-sm font-medium text-white/90">{name}</span>
+                            <div className="flex items-center gap-3 text-xs text-white/40">
+                              <span className="bg-white/5 px-2 py-1 rounded-md">{series.length} séries</span>
+                              <span className="text-emerald-400/60 font-bold">
+                                {Math.max(...series.map(s => Number(s.carga) || 0))}kg
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        exercicios.map((name, i) => (
+                          <div key={i} className="flex items-center justify-between rounded-xl bg-white/5 p-3 ring-1 ring-white/5">
+                            <span className="text-sm font-medium text-white/90">{name}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <ChevronDown size={17} className="text-white/55" />
-                  </div>
-                </button>
+                  )}
+                </div>
               </div>
             );
           })}

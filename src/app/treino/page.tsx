@@ -3,10 +3,10 @@
 import Image from "next/image";
 import { treinos, TipoTreino } from "@/data/treinos";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {  useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Play, Menu } from "lucide-react";
 import toast from "react-hot-toast";
-import { getPerfil } from "@/services/api";
+//import { getPerfil } from "@/services/api";
 import { useNav } from "@/components/navWrapper";
 
 /**
@@ -65,48 +65,6 @@ const normalizeExerciseName = (name: string) =>
 export default function TreinoPage() {
   const router = useRouter();
   const { openSidebar } = useNav();
-
-  // Estado do gênero do usuário — usado para exibir a foto de perfil correta (masculino/feminino)
-  const [userGender, setUserGender] = useState<string | null>(null);
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-
-  /**
-   * Lê o gênero do usuário salvo no localStorage após o mount do componente.
-   * O setTimeout evita erros de "cascading renders" no React 19 durante a hidratação.
-   */
-  useEffect(() => {
-    const timeout = setTimeout(async () => {
-      const userStr = localStorage.getItem("usuario");
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.sexo) setUserGender(user.sexo);
-          if (user.fotoPerfil) setProfilePhoto(user.fotoPerfil);
-        } catch { }
-      }
-
-      try {
-        const perfil = await getPerfil();
-        if (perfil?.sexo) setUserGender(perfil.sexo);
-        if ("fotoPerfil" in (perfil ?? {})) setProfilePhoto(perfil.fotoPerfil ?? null);
-      } catch { }
-    }, 0);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  /**
-   * Retorna o caminho da imagem de perfil com base no gênero do usuário.
-   * Padrão: imagem masculina caso o gênero não esteja definido.
-   */
-  //const getProfileImage = () => {
-  //  if (profilePhoto) return profilePhoto;
- //   if (userGender === "Feminino") {
- //     return "/imagens/perfil/feminino.png";
- //   } else {
- //     return "/imagens/perfil/masculino.png";
-  //  }
- // };
 
   /**
    * Gera os próximos 5 dias a partir de hoje para o seletor de dias.
