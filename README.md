@@ -1,6 +1,6 @@
-# 💪 TreinoApp
+# 🏋️ TrainUp — Sistema de Gestão de Academia
 
-Plataforma web de gerenciamento de treinos para academias — o cliente cria conta, monta suas fichas, registra execuções e acompanha a evolução ao longo do tempo.
+Plataforma web completa para gestão de academias — controle de alunos, mensalidades, treinos e alertas inteligentes em um único painel administrativo.
 
 🌐 **Demo em produção:** [treino-app-168f.onrender.com](https://treino-app-168f.onrender.com)
 
@@ -8,36 +8,47 @@ Plataforma web de gerenciamento de treinos para academias — o cliente cria con
 
 ## 📋 Sobre o projeto
 
-O TreinoApp é uma aplicação fullstack desenvolvida do zero para resolver um problema real: cliente de academia não têm onde registrar e acompanhar seus treinos de forma simples e organizada.
+O TrainUp é um sistema web fullstack desenvolvido para academias gerenciarem seus alunos de forma simples e eficiente. O sistema centraliza o cadastro de clientes, o controle de mensalidades e o acompanhamento de frequência — com alertas automáticos para situações que precisam de atenção imediata.
 
-O cliente cria uma conta, acessa sua ficha de treino, registra séries, repetições e peso de cada exercício durante a sessão — com cronômetro integrado — e depois pode ver o histórico completo de tudo que já treinou. O app ainda exibe vídeos demonstrativos dos exercícios para garantir a execução correta.
+O projeto foi construído com arquitetura fullstack moderna: frontend em Next.js com App Router, API REST em Node.js/Express, banco PostgreSQL em nuvem e deploy completo em produção.
 
-O projeto foi construído com arquitetura fullstack moderna: frontend em Next.js, API REST em Node.js/Express, banco PostgreSQL em nuvem e deploy completo em produção.
-
-> **Em desenvolvimento:** versão mobile em React Native consumindo a mesma API.
+> **Em desenvolvimento:** versão mobile em React Native para os alunos acompanharem seus treinos.
 
 ---
 
 ## ✅ Funcionalidades
 
-### Autenticação
-- Cadastro de conta com e-mail e senha
-- Login com sessão persistente
+### 🔐 Autenticação
+- Login com e-mail e senha
+- Controle de acesso por perfil (admin / cliente)
+- Sessão persistente com JWT
 
-### Tela de treino ativo
-- Cronômetro com iniciar, pausar e retomar
-- Registro de séries, repetições e carga (kg) por exercício
-- Vídeo demonstrativo da execução correta de cada exercício
+### 📊 Dashboard
+- Total de alunos cadastrados
+- Alunos ativos no mês
+- Alunos com mensalidade em dia vs. inadimplentes
+- Alunos que não treinam há mais de 7 dias
+- Receita mensal recebida vs. prevista
+- Gráfico de novos cadastros por mês
+- Gráfico de frequência semanal
 
-### Dashboard
-- Resumo geral dos treinos realizados
-- Volume de treino (séries e carga total)
-- Progresso ao longo do tempo
+### 👥 Cadastro de Clientes
+- Listagem completa com busca e filtros
+- Cadastro com dados pessoais (nome, e-mail, telefone, data de nascimento, gênero)
+- Edição e exclusão de clientes
+- Visualização do perfil individual com histórico
 
-### Histórico
-- Lista de todos os treinos realizados
-- Detalhamento de cada sessão (exercícios, séries, cargas)
-- Compartilhamento do treino realizado
+### 💰 Mensalidades
+- Lançamento de mensalidades por aluno
+- Controle de status: pago, pendente, atrasado
+- Filtro por mês/ano e por status
+- Histórico de pagamentos por aluno
+
+### 🔔 Alertas
+- Mensalidades atrasadas (vencidas e não pagas)
+- Alunos sem treinar há mais de X dias (configurável)
+- Aniversariantes do dia e do mês
+- Painel de alertas consolidado com ações rápidas
 
 ---
 
@@ -46,8 +57,10 @@ O projeto foi construído com arquitetura fullstack moderna: frontend em Next.js
 | Camada | Tecnologia |
 |---|---|
 | Frontend | Next.js 14 (App Router) + TypeScript |
+| Estilização | Tailwind CSS |
 | Backend | Node.js + Express |
 | Banco de dados | PostgreSQL via [Neon](https://neon.tech/) |
+| Autenticação | JWT (JSON Web Token) |
 | Deploy | [Render](https://render.com/) (frontend + backend) |
 | Linguagens | TypeScript 77% · JavaScript 21% |
 
@@ -56,14 +69,21 @@ O projeto foi construído com arquitetura fullstack moderna: frontend em Next.js
 ## 🗂️ Estrutura do projeto
 
 ```
-treino-app/
-├── src/                  # Frontend Next.js
-│   ├── app/              # Rotas e páginas (App Router)
-│   └── components/       # Componentes reutilizáveis
-├── backend/              # API Node.js + Express
-│   ├── routes/           # Endpoints REST
-│   └── db/               # Conexão com PostgreSQL
-└── public/               # Assets estáticos
+trainup/
+├── src/
+│   ├── app/
+│   │   ├── admin/
+│   │   │   ├── dashboard/       # Painel principal
+│   │   │   ├── clientes/        # CRUD de alunos
+│   │   │   ├── mensalidades/    # Controle de pagamentos
+│   │   │   └── alertas/         # Central de alertas
+│   │   ├── cliente/             # Área do aluno
+│   │   └── public/              # Login, cadastro, recuperação de senha
+│   └── components/              # Componentes reutilizáveis
+├── backend/
+│   ├── routes/                  # Endpoints REST
+│   └── db/                      # Conexão com PostgreSQL
+└── public/                      # Assets estáticos
 ```
 
 ---
@@ -95,6 +115,7 @@ Dentro de `/backend`, crie `.env`:
 
 ```env
 DATABASE_URL=sua_connection_string_postgresql
+JWT_SECRET=sua_chave_secreta
 PORT=3001
 ```
 
@@ -145,15 +166,16 @@ Acesse: [http://localhost:3000](http://localhost:3000)
 | Node.js + Express no backend | API REST leve, fácil de escalar e reutilizar no mobile |
 | PostgreSQL no Neon | Banco relacional serverless, sem custo inicial |
 | API separada do frontend | Permite reutilização no app mobile React Native |
+| JWT para autenticação | Stateless, seguro e compatível com mobile |
 | Deploy no Render | CI/CD automático via push no GitHub |
 
 ---
 
 ## 📱 Versão mobile
 
-A versão mobile do TreinoApp está sendo desenvolvida em **React Native**, consumindo a mesma API REST deste repositório — sem duplicação de lógica de negócio.
+A versão mobile está sendo desenvolvida em **React Native**, consumindo a mesma API REST — sem duplicação de lógica de negócio. Permitirá que os alunos acompanhem treinos, visualizem histórico e recebam notificações.
 
-> Repositório mobile: em breve
+> Repositório mobile: [github.com/jonhnyWillian/App-Treino-React](https://github.com/jonhnyWillian/App-Treino-React)
 
 ---
 
