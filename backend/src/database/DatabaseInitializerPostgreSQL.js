@@ -13,7 +13,8 @@ export class DatabaseInitializer {
       await this.createTreinoExercicios();
       await this.createUsuarioTreinos();
       await this.createHistoricoTreinos();
-      await this.createHistoricoSeries(); // deve vir após HistoricoTreinos
+      await this.createHistoricoSeries();
+      await this.createMensalidades();
 
       console.log("✅ Banco pronto com Knex!");
     } catch (error) {
@@ -28,7 +29,7 @@ export class DatabaseInitializer {
 
     if (!exists) {
       await db.schema.createTable("Usuarios", (table) => {
-        table.increments("id").primary(); // SERIAL no Postgres
+        table.increments("id").primary();
         table.string("nome", 100).notNullable();
         table.string("email", 150).notNullable().unique();
         table.string("senha", 200).notNullable();
@@ -38,10 +39,10 @@ export class DatabaseInitializer {
         table.text("fotoPerfil").nullable();
         table.decimal("altura", 5, 2);
         table.decimal("peso", 5, 2);
-
+        table.date("dataNascimento").nullable();
+        table.string("role", 20).defaultTo("cliente").notNullable();
         table.string("resetToken");
-        table.timestamp("resetTokenExp"); // 🔥 melhor que dateTime no Postgres
-
+        table.timestamp("resetTokenExp");
         table.string("situacao", 20).defaultTo("ativo").notNullable();
         table.timestamp("dataCriacao").defaultTo(db.fn.now()).notNullable();
       });
@@ -49,11 +50,14 @@ export class DatabaseInitializer {
     }
 
     const hasFotoPerfil = await db.schema.hasColumn("Usuarios", "fotoPerfil");
-    if (!hasFotoPerfil) {
-      await db.schema.alterTable("Usuarios", (table) => {
-        table.text("fotoPerfil").nullable();
-      });
-    }
+    const hasRole = await db.schema.hasColumn("Usuarios", "role");
+    const hasDataNascimento = await db.schema.hasColumn("Usuarios", "dataNascimento");
+
+    await db.schema.alterTable("Usuarios", (table) => {
+      if (!hasFotoPerfil) table.text("fotoPerfil").nullable();
+      if (!hasRole) table.string("role", 20).defaultTo("cliente").notNullable();
+      if (!hasDataNascimento) table.date("dataNascimento").nullable();
+    });
   }
 
   // tabela de Treinos  
@@ -147,7 +151,7 @@ export class DatabaseInitializer {
         table.integer("series");
         table.integer("repeticoes");
         table.integer("descansoSegundos");
-        table.decimal("cargaSugerida", 5, 2).nullable(); // referência de carga para o aluno
+        table.decimal("cargaSugerida", 5, 2).nullable(); // referência de carga para o cliente
         table.integer("ordem").defaultTo(0);             // ordem de exibição no treino
       });
       return;
@@ -269,5 +273,35 @@ export class DatabaseInitializer {
       });
     }
   }
+
+  // Tabela de Mensalidades
+  // Controla pagamentos mensais dos cliente.
+  // status: 'pendente' | 'pago' | 'atrasado'
+  // Um registro por cliente por mês — admin cria e atualiza manualmente ou via automação.
+  static async createMensalidades() {
+    const exists = await db.schema.hasTable("Mensalidades");
+
+    if (!exists) {
+      await db.schema.createTable("Mensalidades", (table) => {
+        table.increments("id").primary();
+
+        table
+          .integer("usuarioId")
+          .unsigned()
+          .notNullable()
+          .references("id")
+          .inTable("Usuarios")
+          .onDelete("CASCADE");
+        table.string("formaPagamento", 30).nullable();
+        table.decimal("valor", 10, 2).notNullable();
+        table.date("vencimento").notNullable();
+        table.string("status", 20).defaultTo("pendente").notNullable(); // pendente | pago | atrasado
+        table.date("dataPagamento").nullable();
+        table.text("observacao").nullable();
+        table.timestamp("criadoEm").defaultTo(db.fn.now()).notNullable();
+      });
+    }
+  }
+
 
 }

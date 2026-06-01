@@ -80,27 +80,41 @@ export interface RecordePessoal {
   }[];
 }
 
+export interface ClienteLista {
+  id: number;
+  nome: string;
+  email: string;
+  telefone?: string;
+  idade?: number;
+  sexo?: string;
+  situacao?: string;
+  peso?: number;
+  altura?: number;
+  dataNascimento?: string;
+  dataCriacao?: string;
+}
+
+export interface CadastroClienteDados {
+  nome: string;
+  idade: string;
+  sexo: string;
+  email: string;
+  telefone: string;
+  senha: string;
+}
+
+
 // Helper para fazer requisições autenticadas de forma segura
 async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
-  // Garantir que localStorage só seja acessado no cliente (browser)
-  const isClient = typeof window !== "undefined";
-  const token = isClient ? localStorage.getItem("token") : null;
-  
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
   };
 
-  // Se houver headers nas opções, mesclamos (lidando com Headers object ou Record)
   if (options.headers) {
     if (options.headers instanceof Headers) {
-      options.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
+      options.headers.forEach((value, key) => { headers[key] = value; });
     } else if (Array.isArray(options.headers)) {
-      options.headers.forEach(([key, value]) => {
-        headers[key] = value;
-      });
+      options.headers.forEach(([key, value]) => { headers[key] = value; });
     } else {
       Object.assign(headers, options.headers);
     }
@@ -110,12 +124,14 @@ async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
+      credentials: "include",
     });
 
-    if (response.status === 401 && isClient) {
-      // Token expirado ou inválido - Redireciona para login apenas no cliente
-      localStorage.removeItem("token");
-      window.location.href = "/";
+    // Lança erro em vez de redirecionar com window.location.href.
+    // O reload forçado causava loop de requisições — o RotaProtegida
+    // já cuida do redirecionamento via router.push quando necessário.
+    if (response.status === 401) {
+      throw new Error("não autorizado");
     }
 
     return response;
@@ -136,24 +152,25 @@ async function readResponseData(response: Response) {
 }
 
 export async function login(email: string, senha: string) {
-  try {
-    const response = await fetch(`${API_URL}/users/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, senha }),
-    });
-    return response.json();
-  } catch (error) {
-    console.error("Erro na função login:", error);
-    return { message: "Erro de conexão com o servidor" };
-  }
+  const res = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    credentials: "include", // ← essencial para cookies funcionarem
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, senha }),
+  });
+  return res.json();
+}
+
+export async function logoutUsuario() {
+  await fetch(`${API_URL}/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
 }
 
 export async function cadastro(dados: CadastroDados) {
   try {
-    const response = await fetch(`${API_URL}/users/cadastro`, {
+    const response = await fetch(`${API_URL}/cadastro`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -169,7 +186,7 @@ export async function cadastro(dados: CadastroDados) {
 
 export async function googleLogin(token: string) {
   try {
-    const response = await fetch(`${API_URL}/users/google-login`, {
+    const response = await fetch(`${API_URL}/google-login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -185,7 +202,7 @@ export async function googleLogin(token: string) {
 
 export async function forgotPassword(email: string) {
   try {
-    const response = await fetch(`${API_URL}/users/forgot-password`, {
+    const response = await fetch(`${API_URL}/forgot-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -201,7 +218,7 @@ export async function forgotPassword(email: string) {
 
 export async function resetPassword(token: string, novaSenha: string) {
   try {
-    const response = await fetch(`${API_URL}/users/reset-password`, {
+    const response = await fetch(`${API_URL}/reset-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -287,7 +304,7 @@ export async function listarRecordesPessoais(): Promise<RecordePessoal[]> {
 
 export async function desativarConta() {
   try {
-    const response = await authenticatedFetch("/users/desativar", {
+    const response = await authenticatedFetch("/desativar", {
       method: "POST",
     });
     return response.json();
@@ -299,7 +316,7 @@ export async function desativarConta() {
 
 export async function redefinirSenhaLogado(novaSenha: string) {
   try {
-    const response = await authenticatedFetch("/users/redefinir-senha-logado", {
+    const response = await authenticatedFetch("/redefinir-senha-logado", {
       method: "POST",
       body: JSON.stringify({ novaSenha }),
     });
@@ -319,17 +336,23 @@ export async function redefinirSenhaLogado(novaSenha: string) {
 
 export async function getPerfil() {
   try {
-    const response = await authenticatedFetch("/users/perfil");
+    const response = await fetch(`${API_URL}/perfil`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.status === 401) return null; // sem sessão — silencioso
+
     return response.json();
   } catch (error) {
     console.error("Erro na função getPerfil:", error);
-    return { message: "Erro ao buscar perfil" };
+    return null;
   }
 }
 
 export async function patchPerfil(dados: PerfilDados) {
   try {
-    const response = await authenticatedFetch("/users/perfil", {
+    const response = await authenticatedFetch("/perfil", {
       method: "PATCH",
       body: JSON.stringify(dados),
     });
@@ -348,6 +371,43 @@ export async function patchPerfil(dados: PerfilDados) {
     throw new Error("Resposta inválida ao atualizar perfil");
   } catch (error) {
     console.error("Erro na função patchPerfil:", error);
+    throw error;
+  }
+}
+
+export async function listarClientes(): Promise<ClienteLista[]> {
+  try {
+    const response = await authenticatedFetch("/admin/users");
+    console.log("[listarClientes] status:", response.status);
+    const data = await response.json();
+    console.log("[listarClientes] data:", data);
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Erro na função listarClientes:", error);
+    return [];
+  }
+}
+
+export async function cadastrarCliente(dados: CadastroClienteDados) {
+  try {
+    const response = await authenticatedFetch("/cadastro-cliente", {
+      method: "POST",
+      body: JSON.stringify({
+        ...dados,
+        idade: dados.idade ? Number(dados.idade) : null,
+      }),
+    });
+    const data = await readResponseData(response);
+    if (!response.ok) {
+      const message =
+        typeof data === "object" && data && "message" in data
+          ? String((data as { message?: string }).message || "Erro ao cadastrar cliente")
+          : "Erro ao cadastrar cliente";
+      throw new Error(message);
+    }
+    return data;
+  } catch (error) {
+    console.error("Erro na função cadastrarCliente:", error);
     throw error;
   }
 }

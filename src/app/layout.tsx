@@ -1,74 +1,39 @@
 import "@/app/globals.css";
-import NavWrapper from "@/components/navWrapper";
-import { ThemeProvider } from "@/components/themeProvider";
+import { ThemeProvider } from "@/components/ui/themeProvider";
 import { Toaster } from "react-hot-toast";
-// 🔴 GOOGLE TEMPORARIAMENTE DESABILITADO - descomentar quando configurar NEXT_PUBLIC_GOOGLE_CLIENT_ID
-// import { GoogleOAuthProvider } from "@react-oauth/google";
-import AuthGuard from "@/components/authGuard";
+import ConditionalLayout from "@/components/conditionalLayout";
+import { AuthProvider } from "@/contexts/AuthContext";
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // 🔴 GOOGLE TEMPORARIAMENTE DESABILITADO
-  // const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-
-  const toasterConfig = (
-    <Toaster
-      position="top-center"
-      toastOptions={{
-        duration: 4000,
-        style: {
-          background: '#1e293b',
-          color: '#fff',
-          borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          fontSize: '14px',
-        },
-        success: {
-          iconTheme: {
-            primary: '#10b981',
-            secondary: '#fff',
-          },
-        },
-        error: {
-          iconTheme: {
-            primary: '#ef4444',
-            secondary: '#fff',
-          },
-        },
-      }}
-    />
-  );
-
-  const appContent = (
-    <div className="app-wrapper relative min-h-screen overflow-x-hidden">
-      <AuthGuard>
-        <NavWrapper>
-          {children}
-        </NavWrapper>
-      </AuthGuard>
-    </div>
-  );
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" data-theme="dark">
-      <body className="min-h-screen antialiased">
-        {/* 🔴 GOOGLE TEMPORARIAMENTE DESABILITADO
-        <GoogleOAuthProvider clientId={googleClientId}>
-          {toasterConfig}
-          {appContent}
-        </GoogleOAuthProvider>
-        */}
-
-        {/* ✅ SEM GOOGLE - remover este bloco ao reativar o Google */}
+    <html lang="pt-BR" data-theme="dark" className="h-full">
+      <body
+        className="h-full overflow-hidden antialiased bg-[#0f172a] text-sm"
+        style={{ WebkitFontSmoothing: "antialiased" }}
+      >
         <ThemeProvider>
-          {toasterConfig}
-          {appContent}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "#1e293b",
+                color: "#fff",
+                borderRadius: "8px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                fontSize: "13px",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              },
+              success: { iconTheme: { primary: "#10b981", secondary: "#fff" } },
+              error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
+            }}
+          />
+          <AuthProvider>
+            <ConditionalLayout>
+              {children}
+            </ConditionalLayout>
+          </AuthProvider>
         </ThemeProvider>
-        {/* fim do bloco sem Google */}
-
       </body>
     </html>
   );

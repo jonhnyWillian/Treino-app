@@ -1,6 +1,6 @@
 # 💪 TreinoApp
 
-Plataforma web de gerenciamento de treinos para academias — o aluno cria conta, monta suas fichas, registra execuções e acompanha a evolução ao longo do tempo.
+Plataforma web de gerenciamento de treinos para academias — o cliente cria conta, monta suas fichas, registra execuções e acompanha a evolução ao longo do tempo.
 
 🌐 **Demo em produção:** [treino-app-168f.onrender.com](https://treino-app-168f.onrender.com)
 
@@ -8,9 +8,9 @@ Plataforma web de gerenciamento de treinos para academias — o aluno cria conta
 
 ## 📋 Sobre o projeto
 
-O TreinoApp é uma aplicação fullstack desenvolvida do zero para resolver um problema real: alunos de academia não têm onde registrar e acompanhar seus treinos de forma simples e organizada.
+O TreinoApp é uma aplicação fullstack desenvolvida do zero para resolver um problema real: cliente de academia não têm onde registrar e acompanhar seus treinos de forma simples e organizada.
 
-O aluno cria uma conta, acessa sua ficha de treino, registra séries, repetições e peso de cada exercício durante a sessão — com cronômetro integrado — e depois pode ver o histórico completo de tudo que já treinou. O app ainda exibe vídeos demonstrativos dos exercícios para garantir a execução correta.
+O cliente cria uma conta, acessa sua ficha de treino, registra séries, repetições e peso de cada exercício durante a sessão — com cronômetro integrado — e depois pode ver o histórico completo de tudo que já treinou. O app ainda exibe vídeos demonstrativos dos exercícios para garantir a execução correta.
 
 O projeto foi construído com arquitetura fullstack moderna: frontend em Next.js, API REST em Node.js/Express, banco PostgreSQL em nuvem e deploy completo em produção.
 
