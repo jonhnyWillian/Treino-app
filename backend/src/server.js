@@ -14,7 +14,7 @@ dotenv.config();
 const app = express();
 
 const allowedOrigins = process.env.NODE_ENV === "production"
-  ? [process.env.APP_URL]
+  ? [process.env.APP_URL].filter(Boolean)
   : ["http://localhost:3000"];
 
 app.use(cors({
